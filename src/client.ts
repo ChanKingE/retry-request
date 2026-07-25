@@ -13,9 +13,8 @@ import type {
   RequestPlugin,
   RequestResolver,
 } from "./types.ts";
-
-type RequestOverrides<TParams = unknown, TData = unknown> = Omit<
-  RequestConfig<TParams, TData>,
+type RequestOverrides<TBody = unknown> = Omit<
+  RequestConfig<TBody>,
   "url" | "method" | "params" | "data"
 >;
 
@@ -137,9 +136,7 @@ export class RequestClient {
    * @throws {@link BusinessError} 已安装的业务响应拦截器判定业务失败。
    * @remarks 主动取消产生的 `AbortError` 保持原样，不会转换为 NetworkError。
    */
-  async request<T, TParams = unknown, TData = unknown>(
-    config: RequestConfig<TParams, TData>,
-  ): Promise<T> {
+  async request<T, TBody = unknown>(config: RequestConfig<TBody>): Promise<T> {
     const initialConfig = this.#applyDefaults(config);
 
     try {
@@ -212,9 +209,9 @@ export class RequestClient {
   post<T, TData = unknown>(
     url: string,
     data?: TData,
-    config?: RequestOverrides<unknown, TData>,
+    config?: RequestOverrides<TData>,
   ): Promise<T> {
-    return this.request<T, unknown, TData>({ ...config, url, method: "POST", data });
+    return this.request<T, TData>({ ...config, url, method: "POST", data });
   }
 
   /**
@@ -227,12 +224,8 @@ export class RequestClient {
    * @param config - 其他单次请求配置。
    * @returns 响应数据。
    */
-  put<T, TData = unknown>(
-    url: string,
-    data?: TData,
-    config?: RequestOverrides<unknown, TData>,
-  ): Promise<T> {
-    return this.request<T, unknown, TData>({ ...config, url, method: "PUT", data });
+  put<T, TData = unknown>(url: string, data?: TData, config?: RequestOverrides<TData>): Promise<T> {
+    return this.request<T, TData>({ ...config, url, method: "PUT", data });
   }
 
   /**
@@ -249,9 +242,9 @@ export class RequestClient {
   patch<T, TData = unknown>(
     url: string,
     data?: TData,
-    config?: RequestOverrides<unknown, TData>,
+    config?: RequestOverrides<TData>,
   ): Promise<T> {
-    return this.request<T, unknown, TData>({ ...config, url, method: "PATCH", data });
+    return this.request<T, TData>({ ...config, url, method: "PATCH", data });
   }
 
   /**
@@ -270,7 +263,7 @@ export class RequestClient {
     return this.request<T, TParams>({ ...config, url, method: "DELETE" });
   }
 
-  #applyDefaults<TParams, TData>(config: RequestConfig<TParams, TData>): RequestConfig {
+  #applyDefaults<TBody>(config: RequestConfig<TBody>): RequestConfig {
     const baseURL = config.baseURL ?? this.options.baseURL;
     return {
       ...config,

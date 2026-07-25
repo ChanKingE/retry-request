@@ -80,10 +80,10 @@ export interface RetryPolicy {
 /**
  * 单次请求的完整配置。
  *
- * @typeParam TParams - 查询参数类型，具体可用结构由当前适配器决定。
+ * @typeParam TBody - 查询参数类型，具体可用结构由当前适配器决定。
  * @typeParam TData - 请求体类型。
  */
-export interface RequestConfig<TParams = unknown, TData = unknown> {
+export interface RequestConfig<TBody = unknown> {
   /** 请求地址。相对地址会与客户端的 `baseURL` 拼接。 */
   url: string;
   /**
@@ -97,9 +97,9 @@ export interface RequestConfig<TParams = unknown, TData = unknown> {
   /** HTTP 方法。@defaultValue `GET` */
   method?: HttpMethod;
   /** 查询参数；`undefined` 和 `null` 字段不会进入最终 URL。 */
-  params?: TParams;
+  params?: TBody;
   /** 请求体；普通对象由 FetchAdapter 自动序列化为 JSON。 */
-  data?: TData;
+  data?: TBody;
   /** 单次请求头，同名字段覆盖客户端默认请求头。 */
   headers?: Record<string, string>;
   /** 超时时间，单位为毫秒；覆盖客户端默认值。 */
