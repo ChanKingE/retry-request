@@ -25,7 +25,7 @@
   },
   "scripts": {
     "build": "vp pack",
-    "release": "bumpp",
+    "release": "vp run publish",
     "preview:demo": "bun case/demo.ts",
     "preview:test": "bun case/test.ts",
     "dev": "vp pack --watch",
