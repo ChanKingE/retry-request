@@ -1,6 +1,6 @@
 {
   "name": "@chan9808/retry-request",
-  "version": "1.0.6",
+  "version": "1.0.5",
   "description": "请求库核心实现与配套工具,提供Fetch、Axios、UniApp三种平台适配器,支持请求拦截器、响应拦截器、重试机制等功能。",
   "homepage": "https://github.com/ChanKingE/retry-request#readme",
   "bugs": {
@@ -24,7 +24,7 @@
     "access": "public"
   },
   "scripts": {
-    "build": "vp pack",
+    "build": "bumpp",
     "release": "npm publish",
     "preview:demo": "bun case/demo.ts",
     "preview:test": "bun case/test.ts",
