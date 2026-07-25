@@ -1,4 +1,4 @@
-import type { HttpMethod, RequestConfig, RequestPlugin } from "../../types.ts";
+import type { HttpMethod, RequestConfig, RequestPlugin } from "@/types.ts";
 
 /** URL 匹配器：字符串精确匹配、正则匹配，或自定义同步/异步判断函数。 */
 export type MockUrlMatcher =

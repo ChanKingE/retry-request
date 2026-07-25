@@ -1,4 +1,4 @@
-import type { Interceptor } from "./types.ts";
+import type { Interceptor } from "@/types.ts";
 
 /**
  * 管理按注册顺序执行、可随时卸载的 Promise 拦截器链。

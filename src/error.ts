@@ -1,4 +1,4 @@
-import type { HttpResponse, RequestConfig } from "./types.ts";
+import type { HttpResponse, RequestConfig } from "@/types.ts";
 
 /**
  * 表示请求未获得可用 HTTP 响应的传输层错误。

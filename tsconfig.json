@@ -5,6 +5,9 @@
     "moduleDetection": "force",
     "module": "nodenext",
     "moduleResolution": "nodenext",
+    "paths": {
+      "@/*": ["./src/*"]
+    },
     "resolveJsonModule": true,
     "types": ["node"],
     "strict": true,

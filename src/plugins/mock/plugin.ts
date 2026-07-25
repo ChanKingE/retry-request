@@ -1,4 +1,4 @@
-import { resolveURL } from "../../helpers.ts";
+import { resolveURL } from "@/helpers.ts";
 import { findMockRoute } from "./matcher.ts";
 import type {
   MockPlugin,

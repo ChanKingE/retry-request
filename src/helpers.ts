@@ -1,6 +1,6 @@
-import { BusinessError } from "./error.ts";
-import type { HttpResponse, Interceptor, RequestConfig, ResponseEnvelopeOptions } from "./types.ts";
-import type { RequestClient } from "./client.ts";
+import { BusinessError } from "@/error.ts";
+import type { HttpResponse, Interceptor, RequestConfig, ResponseEnvelopeOptions } from "@/types.ts";
+import type { RequestClient } from "@/client.ts";
 
 /**
  * 创建共享同一个 AbortController 的一次性请求执行器。
@@ -87,6 +87,19 @@ export function createResponseEnvelopeInterceptor(
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
+}
+
+/**
+ * 从 AbortSignal 提取取消原因；如果不是 Error 则包装为 AbortError。
+ *
+ * @param signal - 可选的 AbortSignal。
+ * @returns 取消原因对应的 Error 实例。
+ */
+export function getAbortReason(signal?: AbortSignal): Error {
+  if (signal?.reason instanceof Error) return signal.reason;
+  const error = new Error("Request aborted", { cause: signal?.reason });
+  error.name = "AbortError";
+  return error;
 }
 
 export function resolveURL(baseURL: string | undefined, url: string): string {

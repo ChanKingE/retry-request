@@ -1,5 +1,6 @@
-import { HttpError, NetworkError, TimeoutError } from "../error.ts";
-import type { HttpAdapter, HttpMethod, HttpResponse, RequestConfig } from "../types.ts";
+import { HttpError, NetworkError, TimeoutError } from "@/error.ts";
+import { getAbortReason } from "@/helpers.ts";
+import type { HttpAdapter, HttpMethod, HttpResponse, RequestConfig } from "@/types.ts";
 
 /** AxiosAdapter 传给 Axios 实例的最小请求配置。 */
 export interface AxiosRequestConfigLike {
@@ -188,11 +189,4 @@ function normalizeHeaders(
 
 function isErrorLike(error: unknown): error is AxiosErrorLike {
   return error instanceof Error;
-}
-
-function getAbortReason(signal?: AbortSignal): Error {
-  if (signal?.reason instanceof Error) return signal.reason;
-  const error = new Error("Request aborted", { cause: signal?.reason });
-  error.name = "AbortError";
-  return error;
 }

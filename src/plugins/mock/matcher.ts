@@ -1,4 +1,4 @@
-import type { HttpMethod, RequestConfig } from "../../types.ts";
+import type { HttpMethod, RequestConfig } from "@/types.ts";
 import type { MockRoute, MockUrlMatcher } from "./types.ts";
 
 /**

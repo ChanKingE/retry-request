@@ -1,4 +1,4 @@
-import type { RequestError } from "./error.ts";
+import type { RequestError } from "@/error.ts";
 
 interface ClientMeta {
   [key: string]: unknown;

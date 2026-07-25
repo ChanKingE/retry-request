@@ -1,5 +1,5 @@
-import { HttpError, NetworkError, TimeoutError, type RequestError } from "./error.ts";
-import type { HttpMethod, RetryPolicy } from "./types.ts";
+import { HttpError, NetworkError, TimeoutError, type RequestError } from "@/error.ts";
+import type { HttpMethod, RetryPolicy } from "@/types.ts";
 
 const IDEMPOTENT_METHODS = new Set<HttpMethod>(["GET", "PUT", "DELETE"]);
 

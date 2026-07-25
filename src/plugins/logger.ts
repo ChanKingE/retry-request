@@ -1,4 +1,4 @@
-import type { RequestPlugin } from "../types.ts";
+import type { RequestPlugin } from "@/types.ts";
 
 /** 日志插件配置。 */
 export interface LoggerPluginOptions {

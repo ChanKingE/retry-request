@@ -1,4 +1,4 @@
-import type { RequestConfig, RequestPlugin } from "../../types.ts";
+import type { RequestConfig, RequestPlugin } from "@/types.ts";
 
 /** 根据最终请求配置生成去重键；返回 undefined 可跳过当前请求。 */
 export type DedupeKeyGenerator = (config: RequestConfig) => string | undefined;

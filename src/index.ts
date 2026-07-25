@@ -1,7 +1,7 @@
-import { FetchAdapter } from "./adapter/fetch.adapter.ts";
-import { RequestClient } from "./client.ts";
-import { createResponseEnvelopeInterceptor } from "./helpers.ts";
-import type { ClientOptions } from "./types.ts";
+import { FetchAdapter } from "@/adapter/fetch.adapter.ts";
+import { RequestClient } from "@/client.ts";
+import { createResponseEnvelopeInterceptor } from "@/helpers.ts";
+import type { ClientOptions } from "@/types.ts";
 
 /**
  * 创建请求客户端。

@@ -1,4 +1,4 @@
-import type { RequestConfig } from "../../types.ts";
+import type { RequestConfig } from "@/types.ts";
 
 /**
  * 创建适合写入 Mock 历史的浅层请求快照。

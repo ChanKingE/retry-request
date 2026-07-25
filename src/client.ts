@@ -1,6 +1,6 @@
-import { HttpError, normalizeRequestError } from "./error.ts";
-import { InterceptorManager } from "./interceptor.ts";
-import { executeWithRetry } from "./retry.ts";
+import { HttpError, normalizeRequestError } from "@/error.ts";
+import { InterceptorManager } from "@/interceptor.ts";
+import { executeWithRetry } from "@/retry.ts";
 import type {
   ClientOptions,
   HttpAdapter,

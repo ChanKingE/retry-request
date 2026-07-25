@@ -1,6 +1,6 @@
-import { HttpError, NetworkError, TimeoutError } from "../error.ts";
-import { resolveURL } from "../helpers.ts";
-import type { HttpAdapter, HttpMethod, HttpResponse, RequestConfig } from "../types.ts";
+import { HttpError, NetworkError, TimeoutError } from "@/error.ts";
+import { getAbortReason, resolveURL } from "@/helpers.ts";
+import type { HttpAdapter, HttpMethod, HttpResponse, RequestConfig } from "@/types.ts";
 
 /** `uni.request` 成功回调的最小兼容结果。 */
 export interface UniRequestSuccessResult<T = unknown> {
@@ -233,13 +233,6 @@ function appendParams(url: string, params: unknown): string {
 function normalizeHeaders(headers?: Record<string, unknown>): Record<string, string> {
   if (!headers) return {};
   return Object.fromEntries(Object.entries(headers).map(([key, value]) => [key, String(value)]));
-}
-
-function getAbortReason(signal?: AbortSignal): unknown {
-  if (signal?.reason !== undefined) return signal.reason;
-  const error = new Error("Request aborted");
-  error.name = "AbortError";
-  return error;
 }
 
 function getStatusText(status: number): string {

@@ -1,6 +1,6 @@
-import { HttpError, TimeoutError, isAbortError } from "../error.ts";
-import { resolveURL } from "../helpers.ts";
-import type { HttpAdapter, HttpResponse, RequestConfig } from "../types.ts";
+import { HttpError, TimeoutError, isAbortError } from "@/error.ts";
+import { resolveURL } from "@/helpers.ts";
+import type { HttpAdapter, HttpResponse, RequestConfig } from "@/types.ts";
 
 /**
  * 使用浏览器或 Node.js 原生 `fetch` 完成请求的默认适配器。

@@ -1,5 +1,5 @@
-import { resolveURL } from "../../helpers.ts";
-import type { HttpResponse, RequestConfig } from "../../types.ts";
+import { getAbortReason, resolveURL } from "@/helpers.ts";
+import type { HttpResponse, RequestConfig } from "@/types.ts";
 import type { DedupePlugin, DedupePluginOptions } from "./types.ts";
 
 const DEFAULT_WINDOW_MS = 2_000;
@@ -165,9 +165,4 @@ function reuseResponse(
       },
     );
   });
-}
-
-function getAbortReason(signal: AbortSignal): unknown {
-  if (signal.reason !== undefined) return signal.reason;
-  return Object.assign(new Error("The operation was aborted"), { name: "AbortError" });
 }
