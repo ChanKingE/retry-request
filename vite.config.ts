@@ -1,4 +1,4 @@
-import { defineConfig } from "vite-plus";
+import { defineConfig, type UserConfig } from "vite-plus";
 
 export default defineConfig({
   staged: {
@@ -9,6 +9,7 @@ export default defineConfig({
       tsgo: true,
     },
     exports: true,
+    minify: true,
   },
   lint: {
     options: {
@@ -17,4 +18,4 @@ export default defineConfig({
     },
   },
   fmt: {},
-});
+}) satisfies UserConfig;
