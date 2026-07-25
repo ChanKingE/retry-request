@@ -11,7 +11,7 @@ export default defineConfig({
   // 自动打标签，并指定标签前缀
   tag: "v%s",
   // 自动推送到远程
-  push: true,
+  push: false,
 
   // ---------- 安全与检查 ----------
   // 执行前要求用户确认，防止误操作
