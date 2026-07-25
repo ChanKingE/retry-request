@@ -7,7 +7,7 @@
     "url": "https://github.com/ChanKingE/retry-request/issues"
   },
   "license": "MIT",
-  "author": "Author Name <author.name@mail.com>",
+  "author": "ChanKingE",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/ChanKingE/retry-request.git"
@@ -40,5 +40,5 @@
     "typescript": "^7.0.2",
     "vite-plus": "^0.2.4"
   },
-  "packageManager": "bun@1.3.14"
+  "packageManager": "bun@1.2.19"
 }
