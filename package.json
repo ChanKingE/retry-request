@@ -31,7 +31,7 @@
     "dev": "vp pack --watch",
     "test": "vp test",
     "check": "vp check",
-    "prepublishOnly": "bumpp",
+    "prepublishOnly": "vp pack",
     "prepare": "vp config"
   },
   "devDependencies": {
