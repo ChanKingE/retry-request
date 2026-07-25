@@ -12,10 +12,13 @@ export default defineConfig({
     minify: true,
   },
   lint: {
+    ignorePatterns: ["**/*.test.ts"],
     options: {
       typeAware: true,
       typeCheck: true,
     },
   },
-  fmt: {},
+  fmt: {
+    ignorePatterns: ["**/*.test.ts"],
+  },
 }) satisfies UserConfig;

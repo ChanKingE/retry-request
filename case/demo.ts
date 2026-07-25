@@ -239,8 +239,7 @@ async function demonstrateRequestMethods(
   });
   const job = await client.request<
     { accepted: boolean; payload: { name: string } },
-    { dryRun: boolean },
-    { name: string }
+    { dryRun?: boolean; name?: string }
   >({
     url: "/jobs",
     method: "POST",
@@ -279,7 +278,7 @@ async function demonstrateMockMatchers(client: ReturnType<typeof createHttpClien
 /** 演示幂等 GET 在首次 503 后自动重试并恢复。 */
 async function demonstrateRetry(client: ReturnType<typeof createHttpClient>): Promise<void> {
   const result = await client.get<{ recovered: boolean }>("/retry", undefined, {
-    retry: { maxRetries: 1, delay: 0, backoff: "fixed" },
+    retry: { max: 1, delay: 0, backoff: "fixed" },
   });
   console.log("重试结果：", result);
 }

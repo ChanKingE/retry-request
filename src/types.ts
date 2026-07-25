@@ -31,7 +31,7 @@ export interface RetryContext {
  * @example
  * ```ts
  * const retry: RetryPolicy = {
- *   maxRetries: 3,
+ *   max: 3,
  *   delay: 500,
  *   backoff: "exponential",
  * };
@@ -43,7 +43,7 @@ export interface RetryPolicy {
    *
    * @remarks 小数会向下取整，负数按 `0` 处理。
    */
-  maxRetries: number;
+  max: number;
   /**
    * 每次重试前的基础等待时间，单位为毫秒。
    *
@@ -97,9 +97,9 @@ export interface RequestConfig<TBody = unknown> {
   /** HTTP 方法。@defaultValue `GET` */
   method?: HttpMethod;
   /** 查询参数；`undefined` 和 `null` 字段不会进入最终 URL。 */
-  params?: TBody;
+  params?: Partial<TBody>;
   /** 请求体；普通对象由 FetchAdapter 自动序列化为 JSON。 */
-  data?: TBody;
+  data?: Partial<TBody>;
   /** 单次请求头，同名字段覆盖客户端默认请求头。 */
   headers?: Record<string, string>;
   /** 超时时间，单位为毫秒；覆盖客户端默认值。 */
@@ -108,7 +108,7 @@ export interface RequestConfig<TBody = unknown> {
    * 本次请求使用的重试次数或完整策略。
    *
    * @remarks
-   * 数字写法等价于 `{ maxRetries: value }`，优先级高于 {@link ClientOptions.retry}。
+   * 数字写法等价于 `{ max: value }`，优先级高于 {@link ClientOptions.retry}。
    * 请求级策略会整体覆盖客户端策略，不会按字段合并；传入 `0` 可关闭本次请求的全局重试。
    */
   retry?: number | RetryPolicy;
@@ -229,7 +229,7 @@ export interface ClientOptions {
    *
    * @remarks
    * 单次请求可通过 {@link RequestConfig.retry} 整体覆盖该值；请求未提供 `retry` 时才会继承
-   * 此配置。数字写法等价于 `{ maxRetries: value }`。
+   * 此配置。数字写法等价于 `{ max: value }`。
    */
   retry?: number | RetryPolicy;
   /** 是否默认跨域携带 Cookie。@defaultValue `false` */

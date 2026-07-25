@@ -195,7 +195,7 @@ await httpClient.get<Data>("/api/data", undefined, { retry: 3 });
 // 精细控制
 await httpClient.get<Data>("/api/data", undefined, {
   retry: {
-    maxRetries: 3,
+    max: 3,
     delay: 500,
     backoff: "exponential", // 500ms, 1000ms, 2000ms
     retryable: (err) => err instanceof TimeoutError,

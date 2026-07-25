@@ -405,7 +405,7 @@ client.useResponseInterceptor({
 
 ```typescript
 export interface RetryPolicy {
-  maxRetries: number;
+  max: number;
   delay?: number;
   backoff?: "fixed" | "exponential";
   retryable?: (error: RequestError) => boolean;
@@ -422,16 +422,16 @@ export async function executeWithRetry<T>(
 
   const config: RetryPolicy =
     typeof policy === "number"
-      ? { maxRetries: policy, retryable: defaultRetryable }
+      ? { max: policy, retryable: defaultRetryable }
       : { retryable: defaultRetryable, ...policy };
 
   let lastError: unknown;
-  for (let attempt = 0; attempt <= config.maxRetries; attempt++) {
+  for (let attempt = 0; attempt <= config.max; attempt++) {
     try {
       return await fn();
     } catch (err) {
       lastError = err;
-      if (attempt === config.maxRetries || !config.retryable?.(err as RequestError)) {
+      if (attempt === config.max || !config.retryable?.(err as RequestError)) {
         throw err;
       }
       const baseDelay = config.delay ?? 1000;
@@ -521,7 +521,7 @@ import { AxiosAdapter, createHttpClient } from "@/request";
 export const httpClient = createHttpClient({
   baseURL: import.meta.env.VITE_API_BASE_URL,
   timeout: 10000,
-  retry: { maxRetries: 2, delay: 500 },
+  retry: { max: 2, delay: 500 },
 });
 
 export const axiosClient = createHttpClient({

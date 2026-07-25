@@ -39,7 +39,7 @@ import { createHttpClient } from "request";
 const client = createHttpClient({
   baseURL: "https://api.example.com",
   timeout: 5_000,
-  retry: { maxRetries: 2, delay: 500 },
+  retry: { max: 2, delay: 500 },
   withCredentials: true,
   headers: {
     "x-client-version": "1.0.0",
@@ -191,7 +191,7 @@ removeReporter();
 
 ```ts
 const client = createHttpClient({
-  retry: { maxRetries: 2, delay: 500, backoff: "exponential" },
+  retry: { max: 2, delay: 500, backoff: "exponential" },
 });
 ```
 
@@ -202,7 +202,7 @@ import { TimeoutError } from "request";
 
 await client.get("/reports", undefined, {
   retry: {
-    maxRetries: 3,
+    max: 3,
     delay: 500,
     backoff: "exponential",
     retryable: (error) => error instanceof TimeoutError,

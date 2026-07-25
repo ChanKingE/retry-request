@@ -31,7 +31,7 @@ export async function executeWithRetry<T>(
       return await operation();
     } catch (error) {
       if (
-        attempt >= resolved.maxRetries ||
+        attempt >= resolved.max ||
         !resolved.retryable?.(error as RequestError, { attempt, method })
       ) {
         throw error;
@@ -61,10 +61,10 @@ export function defaultRetryable(error: RequestError): boolean {
 
 function resolveRetryPolicy(policy: number | RetryPolicy | undefined): RetryPolicy | undefined {
   if (policy === undefined) return undefined;
-  const resolved = typeof policy === "number" ? { maxRetries: policy } : policy;
+  const resolved = typeof policy === "number" ? { max: policy } : policy;
   return {
     ...resolved,
-    maxRetries: Math.max(0, Math.floor(resolved.maxRetries)),
+    max: Math.max(0, Math.floor(resolved.max)),
     retryable: resolved.retryable ?? defaultRetryable,
   };
 }

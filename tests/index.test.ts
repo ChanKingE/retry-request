@@ -151,11 +151,11 @@ describe("RequestClient", () => {
     );
     const client = new RequestClient(adapter);
 
-    await expect(
-      client.get("/retry", undefined, { retry: { maxRetries: 1, delay: 0 } }),
-    ).resolves.toEqual({
-      ok: true,
-    });
+    await expect(client.get("/retry", undefined, { retry: { max: 1, delay: 0 } })).resolves.toEqual(
+      {
+        ok: true,
+      },
+    );
     expect(adapter.calls).toHaveLength(2);
   });
 
@@ -167,12 +167,12 @@ describe("RequestClient", () => {
       async (config) => response({ recovered: true }, config),
     );
     const globalClient = new RequestClient(globalAdapter, {
-      retry: { maxRetries: 1, delay: 0 },
+      retry: { max: 1, delay: 0 },
     });
 
     await expect(globalClient.get("/global-retry")).resolves.toEqual({ recovered: true });
     expect(globalAdapter.calls).toHaveLength(2);
-    expect(globalAdapter.calls[0]?.retry).toEqual({ maxRetries: 1, delay: 0 });
+    expect(globalAdapter.calls[0]?.retry).toEqual({ max: 1, delay: 0 });
 
     const requestAdapter = new ScriptedAdapter(
       async () => {
