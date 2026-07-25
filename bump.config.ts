@@ -23,7 +23,7 @@ export default defineConfig({
 
   // ---------- 文件与依赖 ----------
   // 指定需要更新的文件
-  files: ["package.json", "package-lock.json"],
+  files: ["package.json", "bun.lock"],
   // 更新版本后自动运行 npm install，同步 lock 文件
   install: true,
   // 提交时只包含版本更新的文件，不包含其他无关变更
