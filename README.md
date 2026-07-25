@@ -12,7 +12,7 @@ HTTP 实现与业务调用，并统一处理超时、重试、取消和错误类
 - 统一的网络、超时、HTTP、业务错误
 - 幂等请求重试、固定或指数退避
 - 基于 `AbortController` 的请求取消
-- 可清理的插件生命周期，以及内置日志、Mock 插件
+- 可清理的插件生命周期，以及内置请求去重、日志、Mock 插件
 - 默认解包 `{ code, data, message }` 业务响应
 
 ## 快速开始
@@ -390,6 +390,44 @@ const client = createHttpClient({ adapter });
 
 ## 插件
 
+### 请求去重插件
+
+相同 HTTP 方法、完整地址、查询参数和请求体在默认 2 秒窗口内只会执行一次底层请求，后续调用
+复用首次请求的结果。每个调用仍会独立执行响应拦截器，也可以通过自己的 `AbortSignal` 停止
+等待，而不会取消其他调用共享的底层请求。
+
+```ts
+import { createDedupePlugin } from "request";
+
+const removeDedupe = client.use(createDedupePlugin());
+
+// 两次调用只发送一次请求。
+const first = client.get("/users", { page: 1 });
+const second = client.get("/users", { page: 1 });
+await Promise.all([first, second]);
+
+removeDedupe();
+```
+
+通过 `windowMs` 自定义窗口，例如改为 5 秒：
+
+```ts
+client.use(createDedupePlugin({ windowMs: 5_000 }));
+```
+
+默认键会稳定序列化普通对象、数组、`Date` 和 `URLSearchParams`，因此对象字段声明顺序不会影响
+匹配。`FormData`、`Blob`、循环引用等无法可靠序列化的数据默认跳过去重；可使用 `createKey`
+按业务规则生成键，返回 `undefined` 时也会跳过当前请求。
+
+```ts
+client.use(
+  createDedupePlugin({
+    windowMs: 3_000,
+    createKey: (config) => (config.meta?.dedupeKey ? String(config.meta.dedupeKey) : undefined),
+  }),
+);
+```
+
 ### Mock 插件
 
 Mock 插件在请求拦截器执行后、底层适配器执行前匹配请求。匹配成功时直接返回标准响应，真实
@@ -501,9 +539,11 @@ removeLogger();
 vp install
 vp check
 vp test
-vp pack
+vp run build
 vp run demo
 ```
+
+`vp run build` 会先选择要升级的版本号并自动写入 `package.json`，然后执行打包。
 
 `vp run demo` 会运行 `case/demo.ts`，使用本地 Mock 和适配器桩覆盖主要调用场景，
 不会发出真实网络请求。更完整的设计说明见 `docs/request-encapsulation-dev.md`。
