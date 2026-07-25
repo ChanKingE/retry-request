@@ -44,6 +44,7 @@ export * from "./client.ts";
 export * from "./error.ts";
 export * from "./helpers.ts";
 export * from "./interceptor.ts";
+export * from "./plugins/dedupe/index.ts";
 export * from "./plugins/logger.ts";
 export * from "./plugins/mock/index.ts";
 export * from "./retry.ts";

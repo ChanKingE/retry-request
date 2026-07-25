@@ -8,6 +8,8 @@ import type {
   HttpResponse,
   Interceptor,
   RequestConfig,
+  RequestHandler,
+  RequestMiddleware,
   RequestPlugin,
   RequestResolver,
 } from "./types.ts";
@@ -36,6 +38,7 @@ export class RequestClient {
   readonly #requestInterceptors = new InterceptorManager<RequestConfig>();
   readonly #responseInterceptors = new InterceptorManager<HttpResponse>();
   readonly #requestResolvers: RequestResolver[] = [];
+  readonly #requestMiddlewares: RequestMiddleware[] = [];
   readonly #pluginCleanups = new Map<RequestPlugin, () => void>();
 
   /**
@@ -86,6 +89,21 @@ export class RequestClient {
   }
 
   /**
+   * 注册包裹完整请求过程的中间件。
+   *
+   * @param middleware - 可在调用 next 前后复用、缓存或转换请求结果的中间件。
+   * @returns 幂等卸载函数。
+   * @remarks 中间件按注册顺序从外到内执行，响应拦截器仍会为每个调用单独运行。
+   */
+  useRequestMiddleware(middleware: RequestMiddleware): () => void {
+    this.#requestMiddlewares.push(middleware);
+    return () => {
+      const index = this.#requestMiddlewares.indexOf(middleware);
+      if (index >= 0) this.#requestMiddlewares.splice(index, 1);
+    };
+  }
+
+  /**
    * 安装请求插件。
    *
    * @param plugin - 实现 `setup` 的插件对象。
@@ -127,28 +145,30 @@ export class RequestClient {
     try {
       const finalConfig = await this.#requestInterceptors.run(initialConfig);
 
-      // 每次失败先标准化错误，再由重试策略判断是否可恢复。
-      const responsePromise = executeWithRetry(
-        async () => {
-          try {
-            const response =
-              (await this.#resolveRequest(finalConfig)) ??
-              (await this.adapter.request<T>(finalConfig));
-            if (response.status >= 400) {
-              throw new HttpError(
-                response.statusText || `HTTP ${response.status}`,
-                response.status,
-                response,
-              );
+      const responsePromise = this.#runRequestMiddlewares(finalConfig, () =>
+        // 每次失败先标准化错误，再由重试策略判断是否可恢复。
+        executeWithRetry(
+          async () => {
+            try {
+              const response =
+                (await this.#resolveRequest(finalConfig)) ??
+                (await this.adapter.request<T>(finalConfig));
+              if (response.status >= 400) {
+                throw new HttpError(
+                  response.statusText || `HTTP ${response.status}`,
+                  response.status,
+                  response,
+                );
+              }
+              return response as HttpResponse;
+            } catch (error) {
+              throw normalizeRequestError(error, finalConfig);
             }
-            return response as HttpResponse;
-          } catch (error) {
-            throw normalizeRequestError(error, finalConfig);
-          }
-        },
-        finalConfig.retry,
-        finalConfig.method ?? "GET",
-        finalConfig.signal,
+          },
+          finalConfig.retry,
+          finalConfig.method ?? "GET",
+          finalConfig.signal,
+        ),
       );
 
       const response = await this.#responseInterceptors.run(responsePromise);
@@ -271,6 +291,15 @@ export class RequestClient {
       if (response !== undefined) return response;
     }
     return undefined;
+  }
+
+  #runRequestMiddlewares(config: RequestConfig, handler: RequestHandler): Promise<HttpResponse> {
+    const middlewares = [...this.#requestMiddlewares];
+    const dispatch = (index: number): Promise<HttpResponse> => {
+      const middleware = middlewares[index];
+      return middleware ? middleware(config, () => dispatch(index + 1)) : handler();
+    };
+    return dispatch(0);
   }
 }
 

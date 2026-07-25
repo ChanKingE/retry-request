@@ -90,7 +90,7 @@ export interface RequestConfig<TParams = unknown, TData = unknown> {
    * 本次请求使用的基地址，仅用于相对 URL。
    *
    * @remarks
-   * 优先级高于 {@link ClientOptions.baseURL}。传入空字符串可为本次请求关闭客户端的
+   * 优先级高于 {@link ClientOptions["baseURL"]}。传入空字符串可为本次请求关闭客户端的
    * 全局基地址；绝对 URL 和以 `//` 开头的协议相对 URL 不会拼接任何基地址。
    */
   baseURL?: string;
@@ -199,6 +199,21 @@ export type RequestResolver = (
   config: RequestConfig,
 ) => HttpResponse | undefined | Promise<HttpResponse | undefined>;
 
+/** 执行当前请求链中的下一个中间件，最终进入请求解析器或底层适配器。 */
+export type RequestHandler = () => Promise<HttpResponse>;
+
+/**
+ * 包裹完整请求执行过程的中间件。
+ *
+ * @param config - 已合并默认值并经过请求拦截器的最终配置。
+ * @param next - 执行后续中间件、重试及底层请求。
+ * @returns 标准响应；可以直接返回缓存中的 Promise 来合并重复请求。
+ */
+export type RequestMiddleware = (
+  config: RequestConfig,
+  next: RequestHandler,
+) => Promise<HttpResponse>;
+
 /** 创建客户端时使用的全局配置。 */
 export interface ClientOptions {
   /**
@@ -289,4 +304,11 @@ export interface RequestClientLike {
    * @returns 对应解析器的卸载函数。
    */
   useRequestResolver(resolver: RequestResolver): () => void;
+  /**
+   * 注册包裹完整请求执行过程的中间件。
+   *
+   * @param middleware - 可复用或短路后续请求执行的中间件。
+   * @returns 对应中间件的卸载函数。
+   */
+  useRequestMiddleware(middleware: RequestMiddleware): () => void;
 }
