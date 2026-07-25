@@ -101,6 +101,7 @@ export class AxiosAdapter implements HttpAdapter {
       const response = await this.instance.request<T>({
         ...this.options.requestConfig,
         url: config.url,
+        baseURL: config.baseURL,
         method: config.method ?? "GET",
         params: config.params,
         data: config.data,
