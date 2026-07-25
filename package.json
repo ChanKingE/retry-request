@@ -24,14 +24,14 @@
     "access": "public"
   },
   "scripts": {
-    "build": "bumpp",
+    "build": "vp pack",
     "release": "npm publish",
     "preview:demo": "bun case/demo.ts",
     "preview:test": "bun case/test.ts",
     "dev": "vp pack --watch",
     "test": "vp test",
     "check": "vp check",
-    "prepublishOnly": "vp pack",
+    "prepublishOnly": "bumpp",
     "prepare": "vp config"
   },
   "devDependencies": {
