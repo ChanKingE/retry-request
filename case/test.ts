@@ -1,4 +1,4 @@
-import { createHttpClient, createMockPlugin, createLoggerPlugin } from "../src/index.ts";
+import { createHttpClient, createMockPlugin } from "../src/index.ts";
 
 const client = createHttpClient({
   baseURL: "https://api.example.com",
@@ -16,27 +16,34 @@ client.use(
         response: {
           code: 0,
           message: "你好",
-          data: [],
+          data: [
+            {
+              id: "Route000210",
+            },
+            {
+              id: "Route000211",
+            },
+          ],
         },
       },
     ],
   }),
 );
-client.use(createLoggerPlugin());
+// client.use(createLoggerPlugin());
 
 async function run() {
-  const baseURL = "http://192.168.210.160:3001";
-  const url = "/WebAppServer/Config/Page/Detail";
+  const baseURL = "/api";
+  const url = "/hello";
   //  ?commsTest=XC0515
   client.request({
     url,
     baseURL,
     method: "POST",
     params: {
-      commsTest: "XC0515",
+      query: "queryValue",
     },
     data: {
-      id: "Route000210",
+      data: "dataValue",
     },
     headers: {
       authorization: "",
