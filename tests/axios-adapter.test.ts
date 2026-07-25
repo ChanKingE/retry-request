@@ -9,6 +9,53 @@ import {
 } from "../src/index.ts";
 
 describe("AxiosAdapter", () => {
+  test("inherits baseURL from Axios instance defaults", async () => {
+    let received: AxiosRequestConfigLike | undefined;
+    const instance: AxiosInstanceLike = {
+      defaults: { baseURL: "https://api.example.com" },
+      async request<T>(config: AxiosRequestConfigLike) {
+        received = config;
+        return { data: undefined as T, status: 204, statusText: "No Content", headers: {} };
+      },
+    };
+
+    await new AxiosAdapter(instance).request({ url: "/users" });
+
+    expect(received?.baseURL).toBe("https://api.example.com");
+  });
+
+  test("keeps an explicit request baseURL override", async () => {
+    let received: AxiosRequestConfigLike | undefined;
+    const instance: AxiosInstanceLike = {
+      defaults: { baseURL: "https://api.example.com" },
+      async request<T>(config: AxiosRequestConfigLike) {
+        received = config;
+        return { data: undefined as T, status: 204, statusText: "No Content", headers: {} };
+      },
+    };
+
+    await new AxiosAdapter(instance).request({ url: "/health", baseURL: "" });
+
+    expect(received?.baseURL).toBe("");
+  });
+
+  test("inherits baseURL from adapter requestConfig before Axios defaults", async () => {
+    let received: AxiosRequestConfigLike | undefined;
+    const instance: AxiosInstanceLike = {
+      defaults: { baseURL: "https://api.example.com" },
+      async request<T>(config: AxiosRequestConfigLike) {
+        received = config;
+        return { data: undefined as T, status: 204, statusText: "No Content", headers: {} };
+      },
+    };
+
+    await new AxiosAdapter(instance, {
+      requestConfig: { baseURL: "https://adapter.example.com" },
+    }).request({ url: "/health" });
+
+    expect(received?.baseURL).toBe("https://adapter.example.com");
+  });
+
   test("maps request config and normalizes AxiosHeaders", async () => {
     let received: (AxiosRequestConfigLike & Record<string, unknown>) | undefined;
     const instance: AxiosInstanceLike = {

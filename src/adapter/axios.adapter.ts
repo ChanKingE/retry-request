@@ -32,6 +32,8 @@ export interface AxiosResponseLike<T = unknown> {
 
 /** AxiosAdapter 依赖的最小 Axios 实例接口。 */
 export interface AxiosInstanceLike {
+  /** Axios 实例的默认配置；Axios create() 通常会在此暴露 baseURL。 */
+  defaults?: AxiosAdapterOptions;
   /** 使用完整配置执行请求。 */
   request<T = unknown>(config: AxiosRequestConfigLike): Promise<AxiosResponseLike<T>>;
 }
@@ -53,7 +55,7 @@ export interface AxiosAdapterOptions {
    *
    * @remarks URL、方法、参数、请求体、请求头、超时、凭证和 signal 会被单次 RequestConfig 覆盖。
    */
-  requestConfig?: Record<string, unknown>;
+  [key: string]: unknown;
 }
 
 /**
@@ -82,7 +84,9 @@ export class AxiosAdapter implements HttpAdapter {
   constructor(
     readonly instance: AxiosInstanceLike,
     readonly options: AxiosAdapterOptions = {},
-  ) {}
+  ) {
+    this.instance.defaults = options;
+  }
 
   /**
    * 使用 Axios 实例执行一次请求。
@@ -100,9 +104,10 @@ export class AxiosAdapter implements HttpAdapter {
 
     try {
       const response = await this.instance.request<T>({
-        ...this.options.requestConfig,
+        ...this.options,
+        ...config,
         url: config.url,
-        baseURL: config.baseURL,
+        baseURL: config.baseURL ?? <string>this.instance.defaults?.baseURL ?? "",
         method: config.method ?? "GET",
         params: config.params,
         data: config.data,
