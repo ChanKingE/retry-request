@@ -1,5 +1,5 @@
 {
-  "name": "@chan9808/request",
+  "name": "@chan9808/retry-request",
   "version": "1.0.3",
   "description": "请求库核心实现与配套工具,提供Fetch、Axios、UniApp三种平台适配器,支持请求拦截器、响应拦截器、重试机制等功能。",
   "homepage": "https://github.com/ChanKingE/retry-request#readme",
