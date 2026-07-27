@@ -1,5 +1,4 @@
 import { HttpError, TimeoutError, isAbortError } from "@/error.ts";
-import { resolveURL } from "@/helpers.ts";
 import type { HttpAdapter, HttpResponse, RequestConfig } from "@/types.ts";
 
 /**
@@ -50,16 +49,13 @@ export class FetchAdapter implements HttpAdapter {
     try {
       const headers = new Headers(config.headers);
       const body = createBody(config.data, headers);
-      const response = await fetch(
-        appendParams(resolveURL(config.baseURL, config.url), config.params),
-        {
-          method: config.method,
-          headers,
-          body,
-          credentials: config.withCredentials ? "include" : "same-origin",
-          signal: controller.signal,
-        },
-      );
+      const response = await fetch(appendParams(config.url, config.params), {
+        method: config.method,
+        headers,
+        body,
+        credentials: config.withCredentials ? "include" : "same-origin",
+        signal: controller.signal,
+      });
       const result: HttpResponse<T> = {
         data: (await readBody(response)) as T,
         status: response.status,

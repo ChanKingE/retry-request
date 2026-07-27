@@ -102,12 +102,15 @@ export class AxiosAdapter implements HttpAdapter {
   async request<T>(config: RequestConfig): Promise<HttpResponse<T>> {
     if (config.signal?.aborted) throw getAbortReason(config.signal);
 
+    const baseURL = config.baseURL ?? <string>this.instance.defaults?.baseURL ?? "";
+    const url = config.url.replace(new RegExp(`^${baseURL}`, "i"), "");
+
     try {
       const response = await this.instance.request<T>({
         ...this.options,
         ...config,
-        url: config.url,
-        baseURL: config.baseURL ?? <string>this.instance.defaults?.baseURL ?? "",
+        url,
+        baseURL,
         method: config.method ?? "GET",
         params: config.params,
         data: config.data,

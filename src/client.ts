@@ -1,4 +1,5 @@
 import { HttpError, normalizeRequestError } from "@/error.ts";
+import { resolveURL } from "@/helpers.ts";
 import { InterceptorManager } from "@/interceptor.ts";
 import { executeWithRetry } from "@/retry.ts";
 import type {
@@ -39,6 +40,8 @@ export class RequestClient {
   readonly #requestResolvers: RequestResolver[] = [];
   readonly #requestMiddlewares: RequestMiddleware[] = [];
   readonly #pluginCleanups = new Map<RequestPlugin, () => void>();
+  readonly #oncePluginCleanups = new Map<RequestPlugin, () => void>();
+  #onceConsumption?: Promise<void>;
 
   /**
    * 创建请求客户端。
@@ -123,6 +126,31 @@ export class RequestClient {
   }
 
   /**
+   * 安装仅供下一次请求使用的插件。
+   *
+   * @param plugin - 实现 `setup` 的插件对象，安装规则与 {@link use} 相同。
+   * @returns 幂等清理函数；可在插件被消费前主动取消注册。
+   * @remarks
+   * 插件会参与下一次请求的完整生命周期，并在请求成功或失败后自动卸载。并发请求会等待
+   * 该次消费完成，避免同一个一次性插件被多个请求重复使用。
+   */
+  once(plugin: RequestPlugin): () => void {
+    const existingCleanup = this.#oncePluginCleanups.get(plugin);
+    if (existingCleanup) return existingCleanup;
+
+    const removePlugin = this.use(plugin);
+    let active = true;
+    const cleanup = () => {
+      if (!active) return;
+      active = false;
+      this.#oncePluginCleanups.delete(plugin);
+      removePlugin();
+    };
+    this.#oncePluginCleanups.set(plugin, cleanup);
+    return cleanup;
+  }
+
+  /**
    * 使用完整配置发起请求。
    *
    * @typeParam T - 调用方最终获得的响应数据类型。
@@ -137,10 +165,25 @@ export class RequestClient {
    * @remarks 主动取消产生的 `AbortError` 保持原样，不会转换为 NetworkError。
    */
   async request<T, TBody = unknown>(config: RequestConfig<TBody>): Promise<T> {
+    while (this.#onceConsumption) await this.#onceConsumption;
+
+    const onceCleanups = [...this.#oncePluginCleanups.values()];
+    let finishOnceConsumption: (() => void) | undefined;
+    if (onceCleanups.length > 0) {
+      this.#oncePluginCleanups.clear();
+      this.#onceConsumption = new Promise((resolve) => {
+        finishOnceConsumption = resolve;
+      });
+    }
+
     const initialConfig = this.#applyDefaults(config);
 
     try {
-      const finalConfig = await this.#requestInterceptors.run(initialConfig);
+      const interceptedConfig = await this.#requestInterceptors.run(initialConfig);
+      const finalConfig = {
+        ...interceptedConfig,
+        url: resolveURL(interceptedConfig.baseURL, interceptedConfig.url),
+      };
 
       const responsePromise = this.#runRequestMiddlewares(finalConfig, () =>
         // 每次失败先标准化错误，再由重试策略判断是否可恢复。
@@ -174,6 +217,15 @@ export class RequestClient {
     } catch (error) {
       if (error instanceof Error) throw normalizeRequestError(error, initialConfig);
       throw error;
+    } finally {
+      try {
+        for (const cleanup of onceCleanups) cleanup();
+      } finally {
+        if (finishOnceConsumption) {
+          this.#onceConsumption = undefined;
+          finishOnceConsumption();
+        }
+      }
     }
   }
 

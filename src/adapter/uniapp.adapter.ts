@@ -1,5 +1,5 @@
 import { HttpError, NetworkError, TimeoutError } from "@/error.ts";
-import { getAbortReason, resolveURL } from "@/helpers.ts";
+import { getAbortReason } from "@/helpers.ts";
 import type { HttpAdapter, HttpMethod, HttpResponse, RequestConfig } from "@/types.ts";
 
 /** `uni.request` 成功回调的最小兼容结果。 */
@@ -151,7 +151,7 @@ export class UniAppAdapter implements HttpAdapter {
       try {
         task = request({
           ...this.#options.requestOptions,
-          url: appendParams(resolveURL(config.baseURL, config.url), config.params),
+          url: appendParams(config.url, config.params),
           data: config.data,
           header: config.headers,
           method: config.method ?? "GET",
