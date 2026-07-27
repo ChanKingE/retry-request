@@ -108,7 +108,7 @@ export interface RequestConfig<TBody = unknown> {
    * 本次请求使用的重试次数或完整策略。
    *
    * @remarks
-   * 数字写法等价于 `{ max: value }`，优先级高于 {@link ClientOptions.retry}。
+   * 数字写法等价于 `{ max: value }`，优先级高于 {@link ClientOptions['retry']}。
    * 请求级策略会整体覆盖客户端策略，不会按字段合并；传入 `0` 可关闭本次请求的全局重试。
    */
   retry?: number | RetryPolicy;
