@@ -35,7 +35,7 @@ async function run() {
   const baseURL = "/api";
   const url = "/hello";
   //  ?commsTest=XC0515
-  client.request({
+  void client.request<{ data: unknown }, { data: unknown; query: unknown }>({
     url,
     baseURL,
     method: "POST",

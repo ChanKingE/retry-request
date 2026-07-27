@@ -60,6 +60,7 @@ describe("RequestClient", () => {
     client.useRequestInterceptor({
       fulfilled(config) {
         order.push("first");
+        expect(config.url).toBe("/users");
         return { ...config, headers: { ...config.headers, "x-first": "1" } };
       },
     });
@@ -74,7 +75,7 @@ describe("RequestClient", () => {
     await expect(client.get<{ ok: boolean }>("/users")).resolves.toEqual({ ok: true });
     expect(order).toEqual(["first"]);
     expect(adapter.calls[0]).toMatchObject({
-      url: "/users",
+      url: "https://api.example.com/users",
       baseURL: "https://api.example.com/",
       method: "GET",
       timeout: 5_000,
@@ -96,7 +97,7 @@ describe("RequestClient", () => {
 
     expect(adapter.calls.map(({ url, baseURL }) => ({ url, baseURL }))).toEqual([
       {
-        url: "/users",
+        url: "https://request.example.com/v2/users",
         baseURL: "https://request.example.com/v2/",
       },
       { url: "/health", baseURL: "" },
@@ -275,6 +276,112 @@ describe("RequestClient", () => {
     cleanup();
     await client.get("/second");
     expect(calls).toBe(1);
+  });
+
+  test("consumes a once plugin for exactly one complete request", async () => {
+    const adapter = new ScriptedAdapter(
+      async (config) => response({ value: 1 }, config),
+      async (config) => response({ value: 2 }, config),
+    );
+    const client = new RequestClient(adapter);
+    const phases: string[] = [];
+    const plugin: RequestPlugin = {
+      name: "once",
+      setup(target) {
+        const removeRequest = target.useRequestInterceptor({
+          fulfilled(config) {
+            phases.push(`request:${config.url}`);
+            return config;
+          },
+        });
+        const removeResponse = target.useResponseInterceptor({
+          fulfilled(value) {
+            phases.push(`response:${value.config.url}`);
+            return value;
+          },
+        });
+        return () => {
+          removeRequest();
+          removeResponse();
+        };
+      },
+    };
+
+    const firstCleanup = client.once(plugin);
+    expect(client.once(plugin)).toBe(firstCleanup);
+    await client.get("/first");
+    await client.get("/second");
+
+    expect(phases).toEqual(["request:/first", "response:/first"]);
+  });
+
+  test("cleans up a once plugin after failure and supports cancellation before consumption", async () => {
+    const adapter = new ScriptedAdapter(
+      async () => {
+        throw new TypeError("offline");
+      },
+      async (config) => response({ ok: true }, config),
+    );
+    const client = new RequestClient(adapter);
+    let calls = 0;
+    const plugin: RequestPlugin = {
+      name: "once-cleanup",
+      setup(target) {
+        return target.useRequestInterceptor({
+          fulfilled(config) {
+            calls += 1;
+            return config;
+          },
+        });
+      },
+    };
+
+    client.once(plugin);
+    await expect(client.get("/failure")).rejects.toBeInstanceOf(NetworkError);
+    await client.get("/after-failure");
+    expect(calls).toBe(1);
+
+    const cancel = client.once(plugin);
+    cancel();
+    cancel();
+    expect(calls).toBe(1);
+  });
+
+  test("does not let concurrent requests consume the same once plugin", async () => {
+    let releaseFirst: (() => void) | undefined;
+    const adapter = new ScriptedAdapter(
+      (config) =>
+        new Promise((resolve) => {
+          releaseFirst = () => resolve(response({ request: "first" }, config));
+        }),
+      async (config) => response({ request: "second" }, config),
+    );
+    const client = new RequestClient(adapter);
+    const consumedURLs: string[] = [];
+    client.once({
+      name: "concurrent-once",
+      setup(target) {
+        return target.useRequestInterceptor({
+          fulfilled(config) {
+            consumedURLs.push(config.url);
+            return config;
+          },
+        });
+      },
+    });
+
+    const first = client.get("/first");
+    await vi.waitFor(() => expect(adapter.calls).toHaveLength(1));
+    const second = client.get("/second");
+    await Promise.resolve();
+
+    expect(adapter.calls).toHaveLength(1);
+    releaseFirst?.();
+    await expect(Promise.all([first, second])).resolves.toEqual([
+      { request: "first" },
+      { request: "second" },
+    ]);
+    expect(consumedURLs).toEqual(["/first"]);
   });
 });
 
