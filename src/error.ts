@@ -80,8 +80,8 @@ export class HttpError<T = unknown> extends Error {
 
 /** 表示 HTTP 请求成功，但业务状态码不符合成功条件。 */
 export class BusinessError extends Error {
-  /** 转换为字符串后的业务状态码。 */
-  readonly code: string;
+  /** 业务状态码。 */
+  readonly code: number;
   /** 业务响应 `data` 字段中的错误详情。 */
   readonly details?: unknown;
 
@@ -93,7 +93,7 @@ export class BusinessError extends Error {
    * @param details - 可选的业务错误详情。
    * @param options - 可选的原始异常。
    */
-  constructor(message: string, code: string, details?: unknown, options?: { cause?: unknown }) {
+  constructor(message: string, code: number, details?: unknown, options?: { cause?: unknown }) {
     super(message, options);
     this.name = "BusinessError";
     this.code = code;
