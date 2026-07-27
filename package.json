@@ -26,12 +26,13 @@
   "scripts": {
     "build": "vp pack",
     "release": "bumpp",
+    "publish": "npm publish",
     "preview:demo": "bun case/demo.ts",
     "preview:test": "bun case/test.ts",
     "dev": "vp pack --watch",
     "test": "vp test",
     "check": "vp check",
-    "prepublishOnly": "bumpp",
+    "prepublishOnly": "vp pack",
     "prepare": "vp config"
   },
   "devDependencies": {
