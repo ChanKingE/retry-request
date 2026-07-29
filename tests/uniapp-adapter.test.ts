@@ -15,7 +15,7 @@ describe("UniAppAdapter", () => {
     const request: UniRequest = (options) => {
       received = options;
       queueMicrotask(() => {
-        options.success({
+        options.success?.({
           data: { id: "1" },
           statusCode: 201,
           header: { "content-type": "application/json", "x-count": 2 },
@@ -66,7 +66,7 @@ describe("UniAppAdapter", () => {
     let abortCalls = 0;
     const adapter = new UniAppAdapter({
       request(options) {
-        options.success({ data: "ok", statusCode: 200 });
+        options.success?.({ data: "ok", statusCode: 200 });
         return { abort: () => (abortCalls += 1) };
       },
     });
@@ -78,7 +78,7 @@ describe("UniAppAdapter", () => {
   test("converts unsuccessful HTTP responses to HttpError", async () => {
     const adapter = new UniAppAdapter({
       request(options) {
-        options.success({ data: { message: "missing" }, statusCode: 404 });
+        options.success?.({ data: { message: "missing" }, statusCode: 404 });
         return { abort() {} };
       },
     });
@@ -91,13 +91,13 @@ describe("UniAppAdapter", () => {
   test("maps timeout and network failures", async () => {
     const timeoutAdapter = new UniAppAdapter({
       request(options) {
-        options.fail({ errMsg: "request:fail timeout", errno: 5 });
+        options.fail?.({ errMsg: "request:fail timeout", errno: 5 });
         return { abort() {} };
       },
     });
     const networkAdapter = new UniAppAdapter({
       request(options) {
-        options.fail({ errMsg: "request:fail network unavailable" });
+        options.fail?.({ errMsg: "request:fail network unavailable" });
         return { abort() {} };
       },
     });
@@ -145,5 +145,68 @@ describe("UniAppAdapter", () => {
     const error = await adapter.request({ url: "/sync-error" }).catch((reason: unknown) => reason);
     expect(error).toBeInstanceOf(NetworkError);
     expect((error as Error).cause).toMatchObject({ message: "runtime unavailable" });
+  });
+
+  test("passes through UniApp platform options while keeping adapter callbacks controlled", async () => {
+    let received: UniRequestOptions | undefined;
+    const adapter = new UniAppAdapter({
+      requestOptions: {
+        dataType: "text",
+        responseType: "arraybuffer",
+        sslVerify: false,
+        firstIpv4: true,
+        enableHttp2: true,
+        enableQuic: true,
+        enableCache: true,
+        enableHttpDNS: true,
+        httpDNSServiceId: "dns-service",
+        enableChunked: true,
+        forceCellularNetwork: true,
+        enableCookie: true,
+        cloudCache: { maxAge: 60 },
+        defer: true,
+      },
+      request(options) {
+        received = options;
+        options.success?.({ data: "ok", statusCode: 200, header: "ignored" });
+        options.complete?.({ errMsg: "request:ok" });
+        return {
+          abort() {},
+          onHeadersReceived() {},
+          offHeadersReceived() {},
+        };
+      },
+    });
+
+    await expect(
+      adapter.request({
+        url: "/platform",
+        data: "raw-body",
+        headers: { "content-type": "text/plain" },
+      }),
+    ).resolves.toMatchObject({ data: "ok", headers: {} });
+    expect(received).toMatchObject({
+      url: "/platform",
+      data: "raw-body",
+      header: { "content-type": "text/plain" },
+      method: "GET",
+      dataType: "text",
+      responseType: "arraybuffer",
+      sslVerify: false,
+      firstIpv4: true,
+      enableHttp2: true,
+      enableQuic: true,
+      enableCache: true,
+      enableHttpDNS: true,
+      httpDNSServiceId: "dns-service",
+      enableChunked: true,
+      forceCellularNetwork: true,
+      enableCookie: true,
+      cloudCache: { maxAge: 60 },
+      defer: true,
+    });
+    expect(received?.success).toEqual(expect.any(Function));
+    expect(received?.fail).toEqual(expect.any(Function));
+    expect(received?.complete).toEqual(expect.any(Function));
   });
 });
