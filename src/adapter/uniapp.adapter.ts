@@ -1,6 +1,6 @@
 import { HttpError, NetworkError, TimeoutError } from "@/error.ts";
 import { getAbortReason } from "@/helpers.ts";
-import type { HttpAdapter, HttpMethod, HttpResponse, RequestConfig } from "@/types.ts";
+import type { HttpAdapter, HttpResponse, RequestConfig } from "@/types.ts";
 
 /** UniApp `uni.request` 支持的请求体数据。 */
 export type UniRequestData = string | Record<string, unknown> | ArrayBuffer;
@@ -90,8 +90,16 @@ export interface UniRequestOptions {
   complete?: (result: UniGeneralCallbackResult) => void;
 }
 
-/** UniApp `uni.request` 接受的方法；适配器入口仍由 RequestConfig 的 HttpMethod 约束。 */
-export type UniRequestMethod = HttpMethod | "OPTIONS" | "HEAD" | "TRACE" | "CONNECT";
+/** UniApp `uni.request` 接受的方法，不含 PATCH（PATCH 降级为 POST）。 */
+export type UniRequestMethod =
+  | "GET"
+  | "POST"
+  | "PUT"
+  | "DELETE"
+  | "OPTIONS"
+  | "HEAD"
+  | "TRACE"
+  | "CONNECT";
 
 type ControlledUniRequestOption =
   | "url"
@@ -219,7 +227,7 @@ export class UniAppAdapter implements HttpAdapter {
           url: appendParams(config.url, config.params),
           data: config.data as UniRequestData | undefined,
           header: config.headers,
-          method: config.method ?? "GET",
+          method: toUniMethod(config.method),
           timeout: config.timeout,
           dataType: this.#options.dataType ?? "json",
           responseType: this.#options.responseType ?? "text",
@@ -299,6 +307,13 @@ function appendParams(url: string, params: unknown): string {
 function normalizeHeaders(headers?: unknown): Record<string, string> {
   if (!headers || typeof headers !== "object") return {};
   return Object.fromEntries(Object.entries(headers).map(([key, value]) => [key, String(value)]));
+}
+
+/** 将 HttpMethod（可能含 PATCH）转为 UniApp 支持的 method，PATCH 降级为 POST。 */
+function toUniMethod(method: string | undefined): UniRequestMethod {
+  if (!method) return "GET";
+  if ((method as string) === "PATCH") return "POST";
+  return method as UniRequestMethod;
 }
 
 function getStatusText(status: number): string {
