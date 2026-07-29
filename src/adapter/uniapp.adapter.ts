@@ -121,7 +121,7 @@ export interface UniAppAdapterOptions {
    *
    * @defaultValue 当前运行环境中的 `globalThis.uni.request`
    */
-  request?: UniRequest;
+  request?: unknown;
   /**
    * 透传给每次 `uni.request` 的平台专属选项。
    *
@@ -161,7 +161,7 @@ export class UniAppAdapter implements HttpAdapter {
    */
   constructor(options: UniAppAdapterOptions = {}) {
     const { request, ...requestOptions } = options;
-    this.#request = request;
+    this.#request = request as UniRequest;
     this.#options = requestOptions;
   }
 
@@ -177,7 +177,7 @@ export class UniAppAdapter implements HttpAdapter {
    * @throws AbortError 外部 AbortSignal 主动取消请求。
    */
   request<T>(config: RequestConfig): Promise<HttpResponse<T>> {
-    const request = this.#request ?? resolveGlobalRequest();
+    const request = (this.#request ?? resolveGlobalRequest()) as UniRequest;
     if (!request) {
       return Promise.reject(new NetworkError("uni.request is not available", { config }));
     }
@@ -271,7 +271,7 @@ export class UniAppAdapter implements HttpAdapter {
 }
 
 function resolveGlobalRequest(): UniRequest | undefined {
-  const runtime = globalThis as typeof globalThis & {
+  const runtime = globalThis as {
     uni?: { request?: UniRequest };
   };
   const request = runtime.uni?.request;
