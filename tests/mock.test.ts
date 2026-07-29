@@ -47,6 +47,68 @@ describe("createMockPlugin", () => {
     expect(mock.history[0]).toMatchObject({ matched: true });
   });
 
+  test("uses request meta mock response before route matching", async () => {
+    const adapter = new RecordingAdapter();
+    const client = new RequestClient(adapter);
+    const mock = createMockPlugin({
+      routes: [{ url: "/route-only", response: { source: "route" } }],
+    });
+    client.use(mock);
+
+    await expect(
+      client.post(
+        "/users",
+        { name: "Alice" },
+        {
+          meta: {
+            mock: {
+              code: 0,
+              message: "你好",
+              data: [{ id: "Route000210" }, { id: "Route000211" }],
+            },
+          },
+        },
+      ),
+    ).resolves.toEqual({
+      code: 0,
+      message: "你好",
+      data: [{ id: "Route000210" }, { id: "Route000211" }],
+    });
+    expect(adapter.calls).toHaveLength(0);
+    expect(mock.history[0]).toMatchObject({ matched: true, route: undefined });
+  });
+
+  test("uses request meta mock route before route matching", async () => {
+    const adapter = new RecordingAdapter();
+    const client = new RequestClient(adapter);
+    const mock = createMockPlugin({
+      routes: [{ url: "/route-only", response: { source: "route" } }],
+    });
+    client.use(mock);
+
+    await expect(
+      client.get("/users", undefined, {
+        meta: {
+          mock: {
+            url: "/not-used-for-matching",
+            response: { source: "meta-route" },
+            status: 201,
+            headers: { "x-meta-mock": "true" },
+          },
+        },
+      }),
+    ).resolves.toEqual({ source: "meta-route" });
+    expect(adapter.calls).toHaveLength(0);
+    expect(mock.history[0]).toMatchObject({
+      matched: true,
+      route: {
+        response: { source: "meta-route" },
+        status: 201,
+        headers: { "x-meta-mock": "true" },
+      },
+    });
+  });
+
   test("always passes unmatched requests through to the adapter", async () => {
     const adapter = new RecordingAdapter();
     const client = new RequestClient(adapter);

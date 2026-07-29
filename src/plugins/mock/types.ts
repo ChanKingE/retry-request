@@ -20,6 +20,9 @@ export type MockResponseValue =
 /** 根据最终请求配置动态生成 Mock 响应体的函数。 */
 export type MockResponseFactory<T = MockResponseValue> = (config: RequestConfig) => T | Promise<T>;
 
+/** 可通过 `config.meta.mock` 直接指定的 Mock 响应。 */
+export type InlineMockResponse<T = MockResponseValue> = T | MockResponseFactory<T>;
+
 /**
  * 一条 Mock 路由规则。
  *
