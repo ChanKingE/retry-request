@@ -25,7 +25,7 @@ export default defineConfig({
   // 指定需要更新的文件
   files: ["package.json", "bun.lock"],
   // files 中已包含 bun.lock，无需再跑 install
-  install: true,
+  install: false,
   // 提交时只包含版本更新的文件，不包含其他无关变更
   all: false,
 
