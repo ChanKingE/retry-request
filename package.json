@@ -25,15 +25,14 @@
   },
   "scripts": {
     "build": "vp pack",
-    "release": "npm publish",
+    "release": "bumpp",
     "preview:demo": "bun case/demo.ts",
     "preview:test": "bun case/test.ts",
     "dev": "vp pack --watch",
     "test": "vp test",
     "check": "vp check",
     "prepublishOnly": "vp pack",
-    "prepare": "vp config",
-    "postpublish": "bumpp"
+    "prepare": "vp config"
   },
   "devDependencies": {
     "@types/node": "^26.1.1",

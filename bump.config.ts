@@ -30,8 +30,8 @@ export default defineConfig({
   all: false,
 
   // ---------- 扩展功能 ----------
-  // 在提交前执行构建脚本，确保发布的包是最新构建的
-  execute: "vp run build", // 如果使用 npm，可改为 'npm run build'
+  // 构建由 npm publish 的 prepublishOnly 负责，这里不用重复执行
+  // execute: "vp run build",
   // 在控制台打印自上次发布以来的提交记录，方便回顾变更
   printCommits: true,
   // 如果是 Monorepo 项目，开启递归更新
