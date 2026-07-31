@@ -33,7 +33,7 @@ export interface AxiosResponseLike<T = unknown> {
 /** AxiosAdapter 依赖的最小 Axios 实例接口。 */
 export interface AxiosInstanceLike {
   /** Axios 实例的默认配置；Axios create() 通常会在此暴露 baseURL。 */
-  defaults?: AxiosAdapterOptions;
+  defaults?: unknown;
   /** 使用完整配置执行请求。 */
   request<T = unknown>(config: AxiosRequestConfigLike): Promise<AxiosResponseLike<T>>;
 }
@@ -101,8 +101,8 @@ export class AxiosAdapter implements HttpAdapter {
    */
   async request<T>(config: RequestConfig): Promise<HttpResponse<T>> {
     if (config.signal?.aborted) throw getAbortReason(config.signal);
-
-    const baseURL = config.baseURL ?? <string>this.instance.defaults?.baseURL ?? "";
+    const defaults = this.instance.defaults as AxiosAdapterOptions;
+    const baseURL = config.baseURL ?? (defaults?.baseURL as string) ?? "";
     const url = config.url.replace(new RegExp(`^${baseURL}`, "i"), "");
 
     try {
