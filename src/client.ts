@@ -34,7 +34,7 @@ type MethodRequestConfig<TBody = unknown> = Omit<RequestConfig<TBody>, "method">
  */
 export class RequestClient {
   readonly #requestInterceptors = new InterceptorManager<RequestConfig>();
-  readonly #responseInterceptors = new InterceptorManager<HttpResponse>();
+  readonly #responseInterceptors = new InterceptorManager<HttpResponse<unknown>>();
   readonly #requestResolvers: RequestResolver[] = [];
   readonly #requestMiddlewares: RequestMiddleware[] = [];
   readonly #pluginCleanups = new Map<RequestPlugin, () => void>();
@@ -70,10 +70,10 @@ export class RequestClient {
    *
    * @param interceptor - 接收标准响应或请求错误的拦截器。
    * @returns 卸载函数；卸载后该拦截器不再参与后续请求。
-   * @remarks `rejected` 返回有效响应时可以把失败链恢复为成功链。
+   * @remarks `rejected` 返回有效响应时可以把失败链恢复为成功链。TODO
    */
-  useResponseInterceptor(interceptor: InterceptorInput<HttpResponse>): () => void {
-    return this.#responseInterceptors.use(interceptor);
+  useResponseInterceptor<T = unknown>(interceptor: InterceptorInput<HttpResponse<T>>): () => void {
+    return this.#responseInterceptors.use(interceptor as InterceptorInput<HttpResponse>);
   }
 
   /**

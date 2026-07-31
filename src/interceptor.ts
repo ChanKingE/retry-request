@@ -9,7 +9,7 @@ import type { InterceptorInput } from "@/types.ts";
  * 执行语义与连续调用 `Promise.then(fulfilled, rejected)` 一致，并额外记录最近一次成功值，
  * 作为 `rejected` 的第二个参数。
  */
-export class InterceptorManager<T, E = unknown> {
+export class InterceptorManager<T = unknown, E = unknown> {
   readonly #interceptors: InterceptorInput<T, E>[] = [];
 
   /**

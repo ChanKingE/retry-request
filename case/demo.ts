@@ -132,7 +132,7 @@ function createDemoMock(): ReturnType<typeof createMockPlugin> {
           code: 0,
           data: {
             id: "2",
-            name: (config.data as CreateUserInput).name,
+            name: config.data!.name,
             enabled: true,
           },
         }),

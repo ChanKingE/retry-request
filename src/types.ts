@@ -99,7 +99,7 @@ export interface RetryPolicy {
  * @typeParam TBody - 查询参数类型，具体可用结构由当前适配器决定。
  * @typeParam TData - 请求体类型。
  */
-export interface RequestConfig<TBody = unknown> extends RequestConfigExtensions {
+export interface RequestConfig<TBody = Record<string, unknown>> extends RequestConfigExtensions {
   /** 请求地址。相对地址会与客户端的 `baseURL` 拼接。 */
   url: string;
   /**
