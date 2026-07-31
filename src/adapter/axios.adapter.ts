@@ -13,6 +13,7 @@ export interface AxiosRequestConfigLike {
   timeout?: number;
   withCredentials?: boolean;
   signal?: AbortSignal;
+  [key: string]: unknown;
 }
 
 /** Axios 响应头对象的最小兼容结构。 */
@@ -33,7 +34,7 @@ export interface AxiosResponseLike<T = unknown> {
 /** AxiosAdapter 依赖的最小 Axios 实例接口。 */
 export interface AxiosInstanceLike {
   /** Axios 实例的默认配置；Axios create() 通常会在此暴露 baseURL。 */
-  defaults?: AxiosAdapterOptions;
+  defaults?: Partial<AxiosRequestConfigLike>;
   /** 使用完整配置执行请求。 */
   request<T = unknown>(config: AxiosRequestConfigLike): Promise<AxiosResponseLike<T>>;
 }
@@ -55,7 +56,7 @@ export interface AxiosAdapterOptions {
    *
    * @remarks URL、方法、参数、请求体、请求头、超时、凭证和 signal 会被单次 RequestConfig 覆盖。
    */
-  [key: string]: unknown;
+  requestConfig?: Partial<AxiosRequestConfigLike>;
 }
 
 /**
@@ -84,9 +85,7 @@ export class AxiosAdapter implements HttpAdapter {
   constructor(
     readonly instance: AxiosInstanceLike,
     readonly options: AxiosAdapterOptions = {},
-  ) {
-    this.instance.defaults = options;
-  }
+  ) {}
 
   /**
    * 使用 Axios 实例执行一次请求。
@@ -102,12 +101,14 @@ export class AxiosAdapter implements HttpAdapter {
   async request<T>(config: RequestConfig): Promise<HttpResponse<T>> {
     if (config.signal?.aborted) throw getAbortReason(config.signal);
 
-    const baseURL = config.baseURL ?? <string>this.instance.defaults?.baseURL ?? "";
+    const requestConfig = this.options.requestConfig ?? {};
+    const baseURL =
+      config.baseURL ?? requestConfig.baseURL ?? <string>this.instance.defaults?.baseURL ?? "";
     const url = config.url.replace(new RegExp(`^${baseURL}`, "i"), "");
 
     try {
       const response = await this.instance.request<T>({
-        ...this.options,
+        ...requestConfig,
         ...config,
         url,
         baseURL,

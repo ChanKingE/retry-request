@@ -7,7 +7,7 @@ import type {
   HttpAdapter,
   HttpMethod,
   HttpResponse,
-  Interceptor,
+  InterceptorInput,
   RequestConfig,
   RequestHandler,
   RequestMiddleware,
@@ -60,7 +60,7 @@ export class RequestClient {
    * @param interceptor - 接收并可修改最终请求配置的拦截器。
    * @returns 卸载函数；卸载后该拦截器不再参与后续请求。
    */
-  useRequestInterceptor(interceptor: Interceptor<RequestConfig>): () => void {
+  useRequestInterceptor(interceptor: InterceptorInput<RequestConfig>): () => void {
     return this.#requestInterceptors.use(interceptor);
   }
 
@@ -71,7 +71,7 @@ export class RequestClient {
    * @returns 卸载函数；卸载后该拦截器不再参与后续请求。
    * @remarks `rejected` 返回有效响应时可以把失败链恢复为成功链。
    */
-  useResponseInterceptor(interceptor: Interceptor<HttpResponse>): () => void {
+  useResponseInterceptor(interceptor: InterceptorInput<HttpResponse>): () => void {
     return this.#responseInterceptors.use(interceptor);
   }
 

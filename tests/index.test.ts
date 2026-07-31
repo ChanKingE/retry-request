@@ -89,6 +89,34 @@ describe("RequestClient", () => {
     });
   });
 
+  test("uses a function request interceptor as fulfilled", async () => {
+    const adapter = new ScriptedAdapter(async (config) => response({ ok: true }, config));
+    const client = new RequestClient(adapter);
+    const addHeader = (config: RequestConfig) => ({
+      ...config,
+      headers: { ...config.headers, "x-function": "1" },
+    });
+
+    const remove = client.useRequestInterceptor(addHeader);
+    remove();
+    client.useRequestInterceptor(addHeader);
+
+    await expect(client.get<{ ok: boolean }>("/function")).resolves.toEqual({ ok: true });
+    expect(adapter.calls[0]?.headers).toMatchObject({ "x-function": "1" });
+  });
+
+  test("uses a function response interceptor as fulfilled", async () => {
+    const adapter = new ScriptedAdapter(async (config) => response({ ok: true }, config));
+    const client = new RequestClient(adapter);
+
+    client.useResponseInterceptor((value) => ({
+      ...value,
+      data: { ok: value.data && "mapped" },
+    }));
+
+    await expect(client.get("/function-response")).resolves.toEqual({ ok: "mapped" });
+  });
+
   test("prefers the request baseURL and allows disabling the global baseURL", async () => {
     const adapter = new ScriptedAdapter(
       async (config) => response({ source: "request" }, config),
@@ -134,7 +162,10 @@ describe("RequestClient", () => {
   });
 
   test("supports declaration-merged request config fields", async () => {
-    const adapter = new ScriptedAdapter(async (config) => response({ ok: true }, config));
+    const adapter = new ScriptedAdapter(
+      async (config) => response({ ok: true }, config),
+      async (config) => response({ ok: true }, config),
+    );
     const client = new RequestClient(adapter);
     const withTokenValues: Array<boolean | undefined> = [];
 

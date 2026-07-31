@@ -1,4 +1,4 @@
-import type { Interceptor } from "@/types.ts";
+import type { InterceptorInput } from "@/types.ts";
 
 /**
  * 管理按注册顺序执行、可随时卸载的 Promise 拦截器链。
@@ -10,7 +10,7 @@ import type { Interceptor } from "@/types.ts";
  * 作为 `rejected` 的第二个参数。
  */
 export class InterceptorManager<T, E = unknown> {
-  readonly #interceptors: Interceptor<T, E>[] = [];
+  readonly #interceptors: InterceptorInput<T, E>[] = [];
 
   /**
    * 注册拦截器。
@@ -18,7 +18,7 @@ export class InterceptorManager<T, E = unknown> {
    * @param interceptor - 要追加到链尾的拦截器。
    * @returns 幂等卸载函数；多次调用不会抛错。
    */
-  use(interceptor: Interceptor<T, E>): () => void {
+  use(interceptor: InterceptorInput<T, E>): () => void {
     this.#interceptors.push(interceptor);
     return () => this.eject(interceptor);
   }
@@ -28,7 +28,7 @@ export class InterceptorManager<T, E = unknown> {
    *
    * @param interceptor - 注册时传入的同一个对象引用。
    */
-  eject(interceptor: Interceptor<T, E>): void {
+  eject(interceptor: InterceptorInput<T, E>): void {
     const index = this.#interceptors.indexOf(interceptor);
     if (index >= 0) this.#interceptors.splice(index, 1);
   }
@@ -51,14 +51,13 @@ export class InterceptorManager<T, E = unknown> {
       chain = chain.then(
         async (currentValue) => {
           latestValue = currentValue;
-          const nextValue = interceptor.fulfilled
-            ? await interceptor.fulfilled(currentValue)
-            : currentValue;
+          const fulfilled = typeof interceptor === "function" ? interceptor : interceptor.fulfilled;
+          const nextValue = fulfilled ? await fulfilled(currentValue) : currentValue;
           latestValue = nextValue;
           return nextValue;
         },
         async (error: E) => {
-          if (!interceptor.rejected) throw error;
+          if (typeof interceptor === "function" || !interceptor.rejected) throw error;
           const recoveredValue = await interceptor.rejected(error, latestValue);
           latestValue = recoveredValue;
           return recoveredValue;

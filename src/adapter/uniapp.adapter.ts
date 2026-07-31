@@ -229,9 +229,10 @@ export class UniAppAdapter implements HttpAdapter {
           header: config.headers,
           method: toUniMethod(config.method),
           timeout: config.timeout,
-          dataType: this.#options.dataType ?? "json",
-          responseType: this.#options.responseType ?? "text",
-          sslVerify: this.#options.sslVerify,
+          dataType: this.#options.dataType ?? this.#options.requestOptions?.dataType ?? "json",
+          responseType:
+            this.#options.responseType ?? this.#options.requestOptions?.responseType ?? "text",
+          sslVerify: this.#options.sslVerify ?? this.#options.requestOptions?.sslVerify,
           withCredentials: config.withCredentials,
           success: (result) => {
             const response: HttpResponse<T> = {

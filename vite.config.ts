@@ -1,6 +1,12 @@
+import { fileURLToPath, URL } from "node:url";
 import { defineConfig, type UserConfig } from "vite-plus";
 
 export default defineConfig({
+  resolve: {
+    alias: {
+      "@": fileURLToPath(new URL("./src", import.meta.url)),
+    },
+  },
   staged: {
     "*": "vp check --fix",
   },
