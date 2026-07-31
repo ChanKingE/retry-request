@@ -311,7 +311,9 @@ export interface RequestClientLike {
    * @param interceptor - 插件提供的请求拦截器。
    * @returns 对应拦截器的卸载函数。
    */
-  useRequestInterceptor<T>(interceptor: InterceptorInput<RequestConfig<T>>): () => void;
+  useRequestInterceptor<T extends Record<string, unknown>>(
+    interceptor: InterceptorInput<RequestConfig<T>>,
+  ): () => void;
   /**
    * 注册响应拦截器。
    *
