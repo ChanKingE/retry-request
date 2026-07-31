@@ -24,10 +24,10 @@ export interface RequestConfigExtensions {}
  * 客户端支持的 HTTP 请求方法。
  *
  * @remarks
- * 当前只开放业务接口最常用的五种方法。重试模块将 `GET`、`PUT`、`DELETE`
+ * 当前只开放业务接口最常用的方法。重试模块将 `GET`、`HEAD`、`OPTIONS`、`PUT`、`DELETE`
  * 视为幂等方法；`POST` 和 `PATCH` 默认不会自动重试。
  */
-export type HttpMethod = "GET" | "POST" | "PUT" | "DELETE" | "PATCH";
+export type HttpMethod = "GET" | "POST" | "PUT" | "DELETE" | "PATCH" | "HEAD" | "OPTIONS";
 
 /** 传递给自定义 `retryable` 函数的当前重试上下文。 */
 export interface RetryContext {

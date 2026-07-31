@@ -1,7 +1,7 @@
 import { HttpError, NetworkError, TimeoutError, type RequestError } from "@/error.ts";
 import type { HttpMethod, RetryPolicy } from "@/types.ts";
 
-const IDEMPOTENT_METHODS = new Set<HttpMethod>(["GET", "PUT", "DELETE"]);
+const IDEMPOTENT_METHODS = new Set<HttpMethod>(["GET", "HEAD", "OPTIONS", "PUT", "DELETE"]);
 
 /**
  * 按策略执行并重试异步操作。

@@ -14,10 +14,7 @@ import type {
   RequestPlugin,
   RequestResolver,
 } from "./types.ts";
-type RequestOverrides<TBody = unknown> = Omit<
-  RequestConfig<TBody>,
-  "url" | "method" | "params" | "data"
->;
+type UrlRequestConfig<TBody = unknown> = Omit<RequestConfig<TBody>, "url" | "method">;
 
 /**
  * 请求核心客户端，负责默认配置、拦截器、适配器、重试和错误标准化的调度。
@@ -41,6 +38,7 @@ export class RequestClient {
   readonly #requestMiddlewares: RequestMiddleware[] = [];
   readonly #pluginCleanups = new Map<RequestPlugin, () => void>();
   readonly #oncePluginCleanups = new Map<RequestPlugin, () => void>();
+  readonly #defaults: ClientOptions;
   #onceConsumption?: Promise<void>;
 
   /**
@@ -51,8 +49,10 @@ export class RequestClient {
    */
   constructor(
     readonly adapter: HttpAdapter,
-    readonly options: ClientOptions = {},
-  ) {}
+    defaults: ClientOptions = {},
+  ) {
+    this.#defaults = defaults;
+  }
 
   /**
    * 注册请求拦截器。
@@ -154,8 +154,7 @@ export class RequestClient {
    * 使用完整配置发起请求。
    *
    * @typeParam T - 调用方最终获得的响应数据类型。
-   * @typeParam TParams - 查询参数类型。
-   * @typeParam TData - 请求体类型。
+   * @typeParam TBody - 查询参数或请求体类型。
    * @param config - 单次请求配置。
    * @returns 经过响应拦截器处理后的 `response.data`。
    * @throws {@link NetworkError} 网络或其他未知传输错误。
@@ -235,16 +234,50 @@ export class RequestClient {
    * @typeParam T - 响应数据类型。
    * @typeParam TParams - 查询参数类型。
    * @param url - 请求地址。
-   * @param params - 查询参数，数组值会序列化为多个同名参数。
-   * @param config - 除 URL、方法、查询参数和请求体外的配置覆盖项。
+   * @param config - 除 URL 和方法外的配置覆盖项；查询参数通过 `config.params` 传入。
    * @returns 响应数据。
    */
-  get<T, TParams = unknown>(
-    url: string,
-    params?: TParams,
-    config?: RequestOverrides<TParams>,
-  ): Promise<T> {
-    return this.request<T, TParams>({ ...config, url, method: "GET", params });
+  get<T, TParams = unknown>(url: string, config?: UrlRequestConfig<TParams>): Promise<T> {
+    return this.request<T, TParams>({ ...config, url, method: "GET" });
+  }
+
+  /**
+   * 发起 DELETE 请求。
+   *
+   * @typeParam T - 响应数据类型。
+   * @typeParam TParams - 查询参数类型。
+   * @param url - 请求地址。
+   * @param config - 除 URL 和方法外的配置覆盖项；查询参数通过 `config.params` 传入。
+   * @returns 响应数据。
+   */
+  delete<T, TParams = unknown>(url: string, config?: UrlRequestConfig<TParams>): Promise<T> {
+    return this.request<T, TParams>({ ...config, url, method: "DELETE" });
+  }
+
+  /**
+   * 发起 HEAD 请求。
+   *
+   * @typeParam T - 响应数据类型。
+   * @typeParam TParams - 查询参数类型。
+   * @param url - 请求地址。
+   * @param config - 除 URL 和方法外的配置覆盖项；查询参数通过 `config.params` 传入。
+   * @returns 响应数据。
+   */
+  head<T, TParams = unknown>(url: string, config?: UrlRequestConfig<TParams>): Promise<T> {
+    return this.request<T, TParams>({ ...config, url, method: "HEAD" });
+  }
+
+  /**
+   * 发起 OPTIONS 请求。
+   *
+   * @typeParam T - 响应数据类型。
+   * @typeParam TParams - 查询参数类型。
+   * @param url - 请求地址。
+   * @param config - 除 URL 和方法外的配置覆盖项；查询参数通过 `config.params` 传入。
+   * @returns 响应数据。
+   */
+  options<T, TParams = unknown>(url: string, config?: UrlRequestConfig<TParams>): Promise<T> {
+    return this.request<T, TParams>({ ...config, url, method: "OPTIONS" });
   }
 
   /**
@@ -261,7 +294,7 @@ export class RequestClient {
   post<T, TData = unknown>(
     url: string,
     data?: TData,
-    config?: RequestOverrides<TData>,
+    config?: UrlRequestConfig<TData>,
   ): Promise<T> {
     return this.request<T, TData>({ ...config, url, method: "POST", data });
   }
@@ -276,7 +309,7 @@ export class RequestClient {
    * @param config - 其他单次请求配置。
    * @returns 响应数据。
    */
-  put<T, TData = unknown>(url: string, data?: TData, config?: RequestOverrides<TData>): Promise<T> {
+  put<T, TData = unknown>(url: string, data?: TData, config?: UrlRequestConfig<TData>): Promise<T> {
     return this.request<T, TData>({ ...config, url, method: "PUT", data });
   }
 
@@ -294,39 +327,29 @@ export class RequestClient {
   patch<T, TData = unknown>(
     url: string,
     data?: TData,
-    config?: RequestOverrides<TData>,
+    config?: UrlRequestConfig<TData>,
   ): Promise<T> {
     return this.request<T, TData>({ ...config, url, method: "PATCH", data });
   }
 
-  /**
-   * 发起 DELETE 请求。
-   *
-   * @typeParam T - 响应数据类型。
-   * @typeParam TParams - 查询参数类型。
-   * @param url - 请求地址。
-   * @param config - 单次请求配置；查询参数通过 `config.params` 传入。
-   * @returns 响应数据。
-   */
-  delete<T, TParams = unknown>(
-    url: string,
-    config?: Omit<RequestConfig<TParams>, "url" | "method" | "data">,
-  ): Promise<T> {
-    return this.request<T, TParams>({ ...config, url, method: "DELETE" });
-  }
-
   #applyDefaults<TBody>(config: RequestConfig<TBody>): RequestConfig {
-    const baseURL = config.baseURL ?? this.options.baseURL;
+    const baseURL = config.baseURL ?? this.#defaults.baseURL;
+    const timeout = config.timeout ?? this.#defaults.timeout;
+    const retry = config.retry ?? this.#defaults.retry;
+    const withCredentials = config.withCredentials ?? this.#defaults.withCredentials;
+    const headers = { ...this.#defaults.headers, ...config.headers };
+    const meta = { ...this.#defaults.meta, ...config.meta };
+
     return {
       ...config,
       baseURL,
       url: config.url,
       method: normalizeMethod(config.method),
-      timeout: config.timeout ?? this.options.timeout,
-      retry: config.retry ?? this.options.retry,
-      withCredentials: config.withCredentials ?? this.options.withCredentials,
-      headers: { ...this.options.headers, ...config.headers },
-      meta: this.options.meta || config.meta ? { ...this.options.meta, ...config.meta } : undefined,
+      timeout,
+      retry,
+      withCredentials,
+      headers,
+      meta,
     };
   }
 
