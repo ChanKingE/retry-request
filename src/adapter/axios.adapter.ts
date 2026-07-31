@@ -84,9 +84,7 @@ export class AxiosAdapter implements HttpAdapter {
   constructor(
     readonly instance: AxiosInstanceLike,
     readonly options: AxiosAdapterOptions = {},
-  ) {
-    this.instance.defaults = options;
-  }
+  ) {}
 
   /**
    * 使用 Axios 实例执行一次请求。
@@ -101,16 +99,11 @@ export class AxiosAdapter implements HttpAdapter {
    */
   async request<T>(config: RequestConfig): Promise<HttpResponse<T>> {
     if (config.signal?.aborted) throw getAbortReason(config.signal);
-    const defaults = this.instance.defaults as AxiosAdapterOptions;
-    const baseURL = config.baseURL ?? (defaults?.baseURL as string) ?? "";
-    const url = config.url.replace(new RegExp(`^${baseURL}`, "i"), "");
-
     try {
       const response = await this.instance.request<T>({
         ...this.options,
         ...config,
-        url,
-        baseURL,
+        url: config.url,
         method: config.method ?? "GET",
         params: config.params,
         data: config.data,
