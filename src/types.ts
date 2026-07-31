@@ -311,14 +311,14 @@ export interface RequestClientLike {
    * @param interceptor - 插件提供的请求拦截器。
    * @returns 对应拦截器的卸载函数。
    */
-  useRequestInterceptor(interceptor: InterceptorInput<RequestConfig>): () => void;
+  useRequestInterceptor<T>(interceptor: InterceptorInput<RequestConfig<T>>): () => void;
   /**
    * 注册响应拦截器。
    *
    * @param interceptor - 插件提供的响应拦截器。
    * @returns 对应拦截器的卸载函数。
    */
-  useResponseInterceptor(interceptor: InterceptorInput<HttpResponse>): () => void;
+  useResponseInterceptor<T>(interceptor: InterceptorInput<HttpResponse<T>>): () => void;
   /**
    * 注册请求解析器。
    *

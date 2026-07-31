@@ -61,8 +61,8 @@ export class RequestClient {
    * @param interceptor - 接收并可修改最终请求配置的拦截器。
    * @returns 卸载函数；卸载后该拦截器不再参与后续请求。
    */
-  useRequestInterceptor(interceptor: InterceptorInput<RequestConfig>): () => void {
-    return this.#requestInterceptors.use(interceptor);
+  useRequestInterceptor<T = unknown>(interceptor: InterceptorInput<RequestConfig<T>>): () => void {
+    return this.#requestInterceptors.use(interceptor as InterceptorInput<RequestConfig>);
   }
 
   /**
