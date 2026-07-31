@@ -172,6 +172,38 @@ describe("RequestClient", () => {
     ]);
   });
 
+  test("supports config-only calls for all method helpers", async () => {
+    const adapter = new ScriptedAdapter(
+      async (config) => response({ ok: true }, config),
+      async (config) => response({ ok: true }, config),
+      async (config) => response({ ok: true }, config),
+      async (config) => response({ ok: true }, config),
+      async (config) => response({ ok: true }, config),
+      async (config) => response({ ok: true }, config),
+      async (config) => response({ ok: true }, config),
+    );
+    const client = new RequestClient(adapter);
+
+    await client.get({ url: "/get", params: { page: 1 } });
+    await client.delete({ url: "/delete", params: { force: true } });
+    await client.head({ url: "/head", headers: { "x-head": "1" } });
+    await client.options({ url: "/options", retry: 0 });
+    await client.post({ url: "/post", data: { name: "Ada" } });
+    await client.put({ url: "/put", data: { id: 1 } });
+    await client.patch({ url: "/patch", data: { id: 2 } });
+
+    expect(adapter.calls.map(({ url, method, params, data }) => ({ url, method, params, data })))
+      .toEqual([
+        { url: "/get", method: "GET", params: { page: 1 }, data: undefined },
+        { url: "/delete", method: "DELETE", params: { force: true }, data: undefined },
+        { url: "/head", method: "HEAD", params: undefined, data: undefined },
+        { url: "/options", method: "OPTIONS", params: undefined, data: undefined },
+        { url: "/post", method: "POST", params: undefined, data: { name: "Ada" } },
+        { url: "/put", method: "PUT", params: undefined, data: { id: 1 } },
+        { url: "/patch", method: "PATCH", params: undefined, data: { id: 2 } },
+      ]);
+  });
+
   test("applies defaults and runs ejectable interceptors in registration order", async () => {
     const adapter = new ScriptedAdapter(async (config) => response({ ok: true }, config));
     const client = new RequestClient(adapter, {

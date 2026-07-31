@@ -15,6 +15,7 @@ import type {
   RequestResolver,
 } from "./types.ts";
 type UrlRequestConfig<TBody = unknown> = Omit<RequestConfig<TBody>, "url" | "method">;
+type MethodRequestConfig<TBody = unknown> = Omit<RequestConfig<TBody>, "method">;
 
 /**
  * 请求核心客户端，负责默认配置、拦截器、适配器、重试和错误标准化的调度。
@@ -237,8 +238,13 @@ export class RequestClient {
    * @param config - 除 URL 和方法外的配置覆盖项；查询参数通过 `config.params` 传入。
    * @returns 响应数据。
    */
-  get<T, TParams = unknown>(url: string, config?: UrlRequestConfig<TParams>): Promise<T> {
-    return this.request<T, TParams>({ ...config, url, method: "GET" });
+  get<T, TParams = unknown>(config: MethodRequestConfig<TParams>): Promise<T>;
+  get<T, TParams = unknown>(url: string, config?: UrlRequestConfig<TParams>): Promise<T>;
+  get<T, TParams = unknown>(
+    urlOrConfig: string | MethodRequestConfig<TParams>,
+    config?: UrlRequestConfig<TParams>,
+  ): Promise<T> {
+    return this.request<T, TParams>(normalizeUrlMethodRequest("GET", urlOrConfig, config));
   }
 
   /**
@@ -250,8 +256,13 @@ export class RequestClient {
    * @param config - 除 URL 和方法外的配置覆盖项；查询参数通过 `config.params` 传入。
    * @returns 响应数据。
    */
-  delete<T, TParams = unknown>(url: string, config?: UrlRequestConfig<TParams>): Promise<T> {
-    return this.request<T, TParams>({ ...config, url, method: "DELETE" });
+  delete<T, TParams = unknown>(config: MethodRequestConfig<TParams>): Promise<T>;
+  delete<T, TParams = unknown>(url: string, config?: UrlRequestConfig<TParams>): Promise<T>;
+  delete<T, TParams = unknown>(
+    urlOrConfig: string | MethodRequestConfig<TParams>,
+    config?: UrlRequestConfig<TParams>,
+  ): Promise<T> {
+    return this.request<T, TParams>(normalizeUrlMethodRequest("DELETE", urlOrConfig, config));
   }
 
   /**
@@ -263,8 +274,13 @@ export class RequestClient {
    * @param config - 除 URL 和方法外的配置覆盖项；查询参数通过 `config.params` 传入。
    * @returns 响应数据。
    */
-  head<T, TParams = unknown>(url: string, config?: UrlRequestConfig<TParams>): Promise<T> {
-    return this.request<T, TParams>({ ...config, url, method: "HEAD" });
+  head<T, TParams = unknown>(config: MethodRequestConfig<TParams>): Promise<T>;
+  head<T, TParams = unknown>(url: string, config?: UrlRequestConfig<TParams>): Promise<T>;
+  head<T, TParams = unknown>(
+    urlOrConfig: string | MethodRequestConfig<TParams>,
+    config?: UrlRequestConfig<TParams>,
+  ): Promise<T> {
+    return this.request<T, TParams>(normalizeUrlMethodRequest("HEAD", urlOrConfig, config));
   }
 
   /**
@@ -276,8 +292,13 @@ export class RequestClient {
    * @param config - 除 URL 和方法外的配置覆盖项；查询参数通过 `config.params` 传入。
    * @returns 响应数据。
    */
-  options<T, TParams = unknown>(url: string, config?: UrlRequestConfig<TParams>): Promise<T> {
-    return this.request<T, TParams>({ ...config, url, method: "OPTIONS" });
+  options<T, TParams = unknown>(config: MethodRequestConfig<TParams>): Promise<T>;
+  options<T, TParams = unknown>(url: string, config?: UrlRequestConfig<TParams>): Promise<T>;
+  options<T, TParams = unknown>(
+    urlOrConfig: string | MethodRequestConfig<TParams>,
+    config?: UrlRequestConfig<TParams>,
+  ): Promise<T> {
+    return this.request<T, TParams>(normalizeUrlMethodRequest("OPTIONS", urlOrConfig, config));
   }
 
   /**
@@ -291,12 +312,14 @@ export class RequestClient {
    * @returns 响应数据。
    * @remarks POST 默认不会重试，除非策略显式设置 `retryNonIdempotent: true`。
    */
+  post<T, TData = unknown>(config: MethodRequestConfig<TData>): Promise<T>;
+  post<T, TData = unknown>(url: string, data?: TData, config?: UrlRequestConfig<TData>): Promise<T>;
   post<T, TData = unknown>(
-    url: string,
+    urlOrConfig: string | MethodRequestConfig<TData>,
     data?: TData,
     config?: UrlRequestConfig<TData>,
   ): Promise<T> {
-    return this.request<T, TData>({ ...config, url, method: "POST", data });
+    return this.request<T, TData>(normalizeDataMethodRequest("POST", urlOrConfig, data, config));
   }
 
   /**
@@ -309,8 +332,14 @@ export class RequestClient {
    * @param config - 其他单次请求配置。
    * @returns 响应数据。
    */
-  put<T, TData = unknown>(url: string, data?: TData, config?: UrlRequestConfig<TData>): Promise<T> {
-    return this.request<T, TData>({ ...config, url, method: "PUT", data });
+  put<T, TData = unknown>(config: MethodRequestConfig<TData>): Promise<T>;
+  put<T, TData = unknown>(url: string, data?: TData, config?: UrlRequestConfig<TData>): Promise<T>;
+  put<T, TData = unknown>(
+    urlOrConfig: string | MethodRequestConfig<TData>,
+    data?: TData,
+    config?: UrlRequestConfig<TData>,
+  ): Promise<T> {
+    return this.request<T, TData>(normalizeDataMethodRequest("PUT", urlOrConfig, data, config));
   }
 
   /**
@@ -324,12 +353,18 @@ export class RequestClient {
    * @returns 响应数据。
    * @remarks PATCH 默认不会重试，除非策略显式设置 `retryNonIdempotent: true`。
    */
+  patch<T, TData = unknown>(config: MethodRequestConfig<TData>): Promise<T>;
   patch<T, TData = unknown>(
     url: string,
     data?: TData,
     config?: UrlRequestConfig<TData>,
+  ): Promise<T>;
+  patch<T, TData = unknown>(
+    urlOrConfig: string | MethodRequestConfig<TData>,
+    data?: TData,
+    config?: UrlRequestConfig<TData>,
   ): Promise<T> {
-    return this.request<T, TData>({ ...config, url, method: "PATCH", data });
+    return this.request<T, TData>(normalizeDataMethodRequest("PATCH", urlOrConfig, data, config));
   }
 
   #applyDefaults<TBody>(config: RequestConfig<TBody>): RequestConfig {
@@ -373,4 +408,23 @@ export class RequestClient {
 
 function normalizeMethod(method?: HttpMethod): HttpMethod {
   return method ?? "GET";
+}
+
+function normalizeUrlMethodRequest<TBody>(
+  method: HttpMethod,
+  urlOrConfig: string | MethodRequestConfig<TBody>,
+  config?: UrlRequestConfig<TBody>,
+): RequestConfig<TBody> {
+  if (typeof urlOrConfig !== "string") return { ...urlOrConfig, method };
+  return { ...config, url: urlOrConfig, method };
+}
+
+function normalizeDataMethodRequest<TBody>(
+  method: HttpMethod,
+  urlOrConfig: string | MethodRequestConfig<TBody>,
+  data?: TBody,
+  config?: UrlRequestConfig<TBody>,
+): RequestConfig<TBody> {
+  if (typeof urlOrConfig !== "string") return { ...urlOrConfig, method };
+  return { ...config, url: urlOrConfig, method, data };
 }
