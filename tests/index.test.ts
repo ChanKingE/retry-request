@@ -55,6 +55,123 @@ describe("RequestClient", () => {
     expect(adapter.calls[0]?.timeout).toBe(10_000);
   });
 
+  test("supports axios-style request and method helper calls", async () => {
+    const adapter = new ScriptedAdapter(
+      async (config) => response({ ok: true }, config),
+      async (config) => response({ ok: true }, config),
+      async (config) => response({ ok: true }, config),
+      async (config) => response({ ok: true }, config),
+      async (config) => response({ ok: true }, config),
+      async (config) => response({ ok: true }, config),
+      async (config) => response({ ok: true }, config),
+      async (config) => response({ ok: true }, config),
+      async (config) => response({ ok: true }, config),
+    );
+    const client = new RequestClient(adapter);
+
+    await client.request({ url: "/get-config", params: { page: 1 } });
+    await client.get("/get-url-config", { params: { page: 2 }, baseURL: "" });
+    await client.delete("/delete-url-config", { params: { page: 3 } });
+    await client.head("/head-url-config", { headers: { "x-head": "1" } });
+    await client.options("/options-url-config", { retry: 0 });
+    await client.request({ url: "/post-config", method: "POST", data: { name: "Ada" } });
+    await client.post("/post-payload-config", { name: "Linus" }, { headers: { "x-name": "1" } });
+    await client.put("/put-payload-config", { id: 1 }, { params: { expand: "user" } });
+    await client.patch("/patch-payload-config", { id: 2 }, { retry: 0 });
+
+    expect(adapter.calls.map(({ url, method, params, data, baseURL, headers, retry }) => ({
+      url,
+      method,
+      params,
+      data,
+      baseURL,
+      headers,
+      retry,
+    }))).toEqual([
+      {
+        url: "/get-config",
+        method: "GET",
+        params: { page: 1 },
+        data: undefined,
+        baseURL: undefined,
+        headers: {},
+        retry: undefined,
+      },
+      {
+        url: "/get-url-config",
+        method: "GET",
+        params: { page: 2 },
+        data: undefined,
+        baseURL: "",
+        headers: {},
+        retry: undefined,
+      },
+      {
+        url: "/delete-url-config",
+        method: "DELETE",
+        params: { page: 3 },
+        data: undefined,
+        baseURL: undefined,
+        headers: {},
+        retry: undefined,
+      },
+      {
+        url: "/head-url-config",
+        method: "HEAD",
+        params: undefined,
+        data: undefined,
+        baseURL: undefined,
+        headers: { "x-head": "1" },
+        retry: undefined,
+      },
+      {
+        url: "/options-url-config",
+        method: "OPTIONS",
+        params: undefined,
+        data: undefined,
+        baseURL: undefined,
+        headers: {},
+        retry: 0,
+      },
+      {
+        url: "/post-config",
+        method: "POST",
+        params: undefined,
+        data: { name: "Ada" },
+        baseURL: undefined,
+        headers: {},
+        retry: undefined,
+      },
+      {
+        url: "/post-payload-config",
+        method: "POST",
+        params: undefined,
+        data: { name: "Linus" },
+        baseURL: undefined,
+        headers: { "x-name": "1" },
+        retry: undefined,
+      },
+      {
+        url: "/put-payload-config",
+        method: "PUT",
+        params: { expand: "user" },
+        data: { id: 1 },
+        baseURL: undefined,
+        headers: {},
+        retry: undefined,
+      },
+      {
+        url: "/patch-payload-config",
+        method: "PATCH",
+        params: undefined,
+        data: { id: 2 },
+        baseURL: undefined,
+        headers: {},
+        retry: 0,
+      },
+    ]);
+  });
+
   test("applies defaults and runs ejectable interceptors in registration order", async () => {
     const adapter = new ScriptedAdapter(async (config) => response({ ok: true }, config));
     const client = new RequestClient(adapter, {
@@ -125,8 +242,8 @@ describe("RequestClient", () => {
     );
     const client = new RequestClient(adapter, { baseURL: "https://global.example.com/api" });
 
-    await client.get("/users", undefined, { baseURL: "https://request.example.com/v2/" });
-    await client.get("/health", undefined, { baseURL: "" });
+    await client.get("/users", { baseURL: "https://request.example.com/v2/" });
+    await client.get("/health", { baseURL: "" });
     await client.get("https://external.example.com/status");
 
     expect(adapter.calls.map(({ url, baseURL }) => ({ url, baseURL }))).toEqual([
@@ -148,7 +265,7 @@ describe("RequestClient", () => {
     const requestMeta = { requestId: "req-1", shared: "request" };
     const client = new RequestClient(adapter, { meta: globalMeta });
 
-    await client.get("/meta", undefined, { meta: requestMeta });
+    await client.get("/meta", { meta: requestMeta });
 
     expect(adapter.calls[0]?.meta).toEqual({
       source: "client",
@@ -181,7 +298,7 @@ describe("RequestClient", () => {
       },
     });
 
-    await client.get("/public", undefined, { withToken: false });
+    await client.get("/public", { withToken: false });
     await client.post("/private", { name: "Ada" }, { withToken: true });
 
     expect(withTokenValues).toEqual([false, true]);
@@ -215,7 +332,7 @@ describe("RequestClient", () => {
     );
     const client = new RequestClient(adapter);
 
-    await expect(client.get("/retry", undefined, { retry: { max: 1, delay: 0 } })).resolves.toEqual(
+    await expect(client.get("/retry", { retry: { max: 1, delay: 0 } })).resolves.toEqual(
       {
         ok: true,
       },
@@ -247,7 +364,7 @@ describe("RequestClient", () => {
     const requestClient = new RequestClient(requestAdapter, { retry: 2 });
 
     await expect(
-      requestClient.get("/request-retry", undefined, { retry: 0 }),
+      requestClient.get("/request-retry", { retry: 0 }),
     ).rejects.toBeInstanceOf(TimeoutError);
     expect(requestAdapter.calls).toHaveLength(1);
     expect(requestAdapter.calls[0]?.retry).toBe(0);

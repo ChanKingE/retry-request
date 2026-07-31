@@ -87,7 +87,7 @@ describe("createMockPlugin", () => {
     client.use(mock);
 
     await expect(
-      client.get("/users", undefined, {
+      client.get("/users", {
         meta: {
           mock: {
             url: "/not-used-for-matching",
@@ -118,7 +118,7 @@ describe("createMockPlugin", () => {
     client.use(mock);
 
     await expect(
-      client.get("/users", undefined, {
+      client.get("/users", {
         mock: {
           url: "/not-used-for-matching",
           response: { source: "config-mock" },
@@ -146,7 +146,8 @@ describe("createMockPlugin", () => {
     client.use(mock);
 
     await expect(
-      client.get("/users", { page: 1 }, {
+      client.get("/users", {
+        params: { page: 1 },
         meta: {
           mock: (config: RequestConfig) => ({
             url: config.url,
@@ -222,7 +223,7 @@ describe("createMockPlugin", () => {
     });
     client.use(mock);
     const controller = new AbortController();
-    const result = client.get("/slow", undefined, { signal: controller.signal });
+    const result = client.get("/slow", { signal: controller.signal });
     controller.abort();
 
     await expect(result).rejects.toMatchObject({ name: "AbortError" });

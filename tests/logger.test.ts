@@ -27,7 +27,7 @@ describe("createLoggerPlugin", () => {
     client.use(createLoggerPlugin({ logger: pluginLogger }));
 
     await expect(
-      client.get("/status", undefined, { meta: { logger: { logger: requestLogger } } }),
+      client.get("/status", { meta: { logger: { logger: requestLogger } } }),
     ).resolves.toEqual({ ok: true });
 
     expect(requestLogger.debug).toHaveBeenCalledTimes(2);
@@ -42,7 +42,7 @@ describe("createLoggerPlugin", () => {
     client.use(createLoggerPlugin({ logger: pluginLogger }));
 
     await expect(
-      client.get("/status", undefined, {
+      client.get("/status", {
         logger: { logger: requestLogger },
         meta: { logger: { logger: metaLogger } },
       }),

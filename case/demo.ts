@@ -228,8 +228,10 @@ async function demonstrateRequestMethods(
 ): Promise<void> {
   const user = await client.get<User>("/users/1");
   const page = await client.get<{ items: User[]; query: PageQuery }, PageQuery>("/users", {
-    page: 1,
-    roles: ["admin", "owner"],
+    params: {
+      page: 1,
+      roles: ["admin", "owner"],
+    },
   });
   const created = await client.post<User, CreateUserInput>("/users", { name: "Bob" });
   const replaced = await client.put<User, UpdateUserInput>("/users/1", { name: "Carol" });
@@ -255,10 +257,10 @@ async function demonstrateRequestMethods(
 
 /** 演示请求级 baseURL 优先级、空字符串关闭全局地址以及绝对 URL。 */
 async function demonstrateBaseURL(client: ReturnType<typeof createHttpClient>): Promise<void> {
-  const requestBase = await client.get<{ source: string }>("/users/1", undefined, {
+  const requestBase = await client.get<{ source: string }>("/users/1", {
     baseURL: "https://staging.example.com/v2",
   });
-  const withoutBase = await client.get<{ healthy: boolean }>("/health", undefined, {
+  const withoutBase = await client.get<{ healthy: boolean }>("/health", {
     baseURL: "",
   });
   const absolute = await client.get<{ external: boolean }>("https://external.example.com/status");
@@ -269,7 +271,6 @@ async function demonstrateBaseURL(client: ReturnType<typeof createHttpClient>): 
 async function demonstrateMockMatchers(client: ReturnType<typeof createHttpClient>): Promise<void> {
   const result = await client.get<{ method: string; meta: Record<string, unknown> }>(
     "/features/demo",
-    undefined,
     { meta: { feature: "demo", environment: "request" } },
   );
   console.log("函数 Mock 匹配结果：", result);
@@ -277,7 +278,7 @@ async function demonstrateMockMatchers(client: ReturnType<typeof createHttpClien
 
 /** 演示幂等 GET 在首次 503 后自动重试并恢复。 */
 async function demonstrateRetry(client: ReturnType<typeof createHttpClient>): Promise<void> {
-  const result = await client.get<{ recovered: boolean }>("/retry", undefined, {
+  const result = await client.get<{ recovered: boolean }>("/retry", {
     retry: { max: 1, delay: 0, backoff: "fixed" },
   });
   console.log("重试结果：", result);
@@ -286,7 +287,7 @@ async function demonstrateRetry(client: ReturnType<typeof createHttpClient>): Pr
 /** 演示直接 AbortSignal 和 createRequest 共享取消控制器。 */
 async function demonstrateCancellation(client: ReturnType<typeof createHttpClient>): Promise<void> {
   const controller = new AbortController();
-  const directRequest = client.get("/slow/direct", undefined, { signal: controller.signal });
+  const directRequest = client.get("/slow/direct", { signal: controller.signal });
   controller.abort();
   await reportExpectedError("AbortSignal 取消", directRequest);
 
@@ -401,7 +402,7 @@ async function demonstrateAdapters(): Promise<void> {
     responseEnvelope: false,
   });
   const uniResult = await uniClient.get<{ runtime: string; url: string }>("/uni-demo", {
-    platform: "app",
+    params: { platform: "app" },
   });
 
   console.log("适配器结果：", { axiosResult, uniResult });

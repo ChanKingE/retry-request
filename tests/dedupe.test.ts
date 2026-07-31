@@ -71,11 +71,11 @@ describe("createDedupePlugin", () => {
     const client = new RequestClient(adapter);
     client.use(createDedupePlugin({ windowMs: 500 }));
 
-    await expect(client.get("/status", { region: "cn" })).resolves.toEqual({ call: 1 });
+    await expect(client.get("/status", { params: { region: "cn" } })).resolves.toEqual({ call: 1 });
     await vi.advanceTimersByTimeAsync(499);
-    await expect(client.get("/status", { region: "cn" })).resolves.toEqual({ call: 1 });
+    await expect(client.get("/status", { params: { region: "cn" } })).resolves.toEqual({ call: 1 });
     await vi.advanceTimersByTimeAsync(1);
-    await expect(client.get("/status", { region: "cn" })).resolves.toEqual({ call: 2 });
+    await expect(client.get("/status", { params: { region: "cn" } })).resolves.toEqual({ call: 2 });
     expect(adapter.calls).toHaveLength(2);
   });
 
@@ -100,13 +100,13 @@ describe("createDedupePlugin", () => {
       createDedupePlugin({ createKey: (config) => String(config.meta?.requestGroup) }),
     );
 
-    await client.get("/first", undefined, { meta: { requestGroup: "shared" } });
+    await client.get("/first", { meta: { requestGroup: "shared" } });
     await expect(
-      client.get("/second", undefined, { meta: { requestGroup: "shared" } }),
+      client.get("/second", { meta: { requestGroup: "shared" } }),
     ).resolves.toEqual({ call: 1 });
     remove();
     await expect(
-      client.get("/second", undefined, { meta: { requestGroup: "shared" } }),
+      client.get("/second", { meta: { requestGroup: "shared" } }),
     ).resolves.toEqual({ call: 2 });
   });
 
@@ -116,10 +116,10 @@ describe("createDedupePlugin", () => {
     client.use(createDedupePlugin({ windowMs: 5_000 }));
 
     await expect(
-      client.get("/status", undefined, { meta: { dedupe: { windowMs: 0 } } }),
+      client.get("/status", { meta: { dedupe: { windowMs: 0 } } }),
     ).resolves.toEqual({ call: 1 });
     await expect(
-      client.get("/status", undefined, { meta: { dedupe: { windowMs: 0 } } }),
+      client.get("/status", { meta: { dedupe: { windowMs: 0 } } }),
     ).resolves.toEqual({ call: 2 });
     expect(adapter.calls).toHaveLength(2);
   });
@@ -129,11 +129,11 @@ describe("createDedupePlugin", () => {
     const client = new RequestClient(adapter);
     client.use(createDedupePlugin({ createKey: () => "plugin-key" }));
 
-    await client.get("/first", undefined, {
+    await client.get("/first", {
       meta: { dedupe: { createKey: () => "request-key" } },
     });
     await expect(
-      client.get("/second", undefined, {
+      client.get("/second", {
         meta: { dedupe: { createKey: () => "request-key" } },
       }),
     ).resolves.toEqual({ call: 1 });
@@ -145,12 +145,12 @@ describe("createDedupePlugin", () => {
     const client = new RequestClient(adapter);
     client.use(createDedupePlugin({ windowMs: 5_000, createKey: () => "plugin-key" }));
 
-    await client.get("/first", undefined, {
+    await client.get("/first", {
       dedupe: { createKey: () => "config-key" },
       meta: { dedupe: { windowMs: 0, createKey: () => "meta-key" } },
     });
     await expect(
-      client.get("/second", undefined, {
+      client.get("/second", {
         dedupe: { createKey: () => "config-key" },
         meta: { dedupe: { windowMs: 0, createKey: () => "meta-key" } },
       }),
@@ -164,7 +164,7 @@ describe("createDedupePlugin", () => {
     client.use(createDedupePlugin());
 
     await expect(
-      client.get("/status", undefined, { meta: { dedupe: { windowMs: Number.NaN } } }),
+      client.get("/status", { meta: { dedupe: { windowMs: Number.NaN } } }),
     ).rejects.toThrow("windowMs must be between");
   });
 
@@ -181,7 +181,7 @@ describe("createDedupePlugin", () => {
     client.use(createDedupePlugin());
     const first = client.get("/slow");
     const controller = new AbortController();
-    const duplicate = client.get("/slow", undefined, { signal: controller.signal });
+    const duplicate = client.get("/slow", { signal: controller.signal });
 
     await vi.waitFor(() => expect(resolveRequest).toBeTypeOf("function"));
     controller.abort();
