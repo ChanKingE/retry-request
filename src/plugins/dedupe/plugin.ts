@@ -1,6 +1,6 @@
 import { getAbortReason, resolveURL } from "@/helpers.ts";
 import type { HttpResponse, RequestConfig } from "@/types.ts";
-import type { DedupePlugin, DedupePluginOptions } from "./types.ts";
+import type { DedupeKeyGenerator, DedupePlugin, DedupePluginOptions } from "./types.ts";
 
 const DEFAULT_WINDOW_MS = 2_000;
 const MAX_WINDOW_MS = 2_147_483_647;
@@ -33,9 +33,14 @@ export function createDedupePlugin(options: DedupePluginOptions = {}): DedupePlu
     name: "dedupe",
     setup(client) {
       const removeMiddleware = client.useRequestMiddleware((config, next) => {
-        if (windowMs === 0) return next();
+        const requestOptions = resolveDedupeOptions(
+          config.dedupe ?? config.meta?.dedupe,
+          windowMs,
+          createKey,
+        );
+        if (requestOptions.windowMs === 0) return next();
 
-        const key = createKey(config);
+        const key = requestOptions.createKey(config);
         if (key === undefined) return next();
 
         const existing = entries.get(key);
@@ -46,7 +51,7 @@ export function createDedupePlugin(options: DedupePluginOptions = {}): DedupePlu
           promise,
           timer: setTimeout(() => {
             if (entries.get(key) === entry) entries.delete(key);
-          }, windowMs),
+          }, requestOptions.windowMs),
         };
         entries.set(key, entry);
         return promise;
@@ -58,6 +63,26 @@ export function createDedupePlugin(options: DedupePluginOptions = {}): DedupePlu
         entries.clear();
       };
     },
+  };
+}
+
+function resolveDedupeOptions(
+  value: unknown,
+  defaultWindowMs: number,
+  defaultCreateKey: DedupeKeyGenerator,
+): Required<DedupePluginOptions> {
+  if (!isRecord(value)) {
+    return { windowMs: defaultWindowMs, createKey: defaultCreateKey };
+  }
+
+  const requestWindowMs = value.windowMs === undefined ? defaultWindowMs : value.windowMs;
+  validateWindow(requestWindowMs as number);
+  return {
+    windowMs: requestWindowMs as number,
+    createKey:
+      typeof value.createKey === "function"
+        ? (value.createKey as DedupeKeyGenerator)
+        : defaultCreateKey,
   };
 }
 
@@ -80,6 +105,10 @@ function validateWindow(windowMs: number): void {
   if (!Number.isFinite(windowMs) || windowMs < 0 || windowMs > MAX_WINDOW_MS) {
     throw new RangeError(`windowMs must be between 0 and ${MAX_WINDOW_MS}`);
   }
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
 }
 
 function stableSerialize(

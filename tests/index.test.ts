@@ -16,6 +16,12 @@ import {
   type RequestPlugin,
 } from "../src/index.ts";
 
+declare module "../src/types.ts" {
+  interface RequestConfigExtensions {
+    withToken?: boolean;
+  }
+}
+
 type AdapterStep = (config: RequestConfig) => Promise<HttpResponse>;
 
 class ScriptedAdapter implements HttpAdapter {
@@ -125,6 +131,32 @@ describe("RequestClient", () => {
     expect(adapter.calls[0]?.meta).not.toBe(requestMeta);
     expect(globalMeta).toEqual({ source: "client", shared: "global" });
     expect(requestMeta).toEqual({ requestId: "req-1", shared: "request" });
+  });
+
+  test("supports declaration-merged request config fields", async () => {
+    const adapter = new ScriptedAdapter(async (config) => response({ ok: true }, config));
+    const client = new RequestClient(adapter);
+    const withTokenValues: Array<boolean | undefined> = [];
+
+    client.useRequestInterceptor({
+      fulfilled(config) {
+        withTokenValues.push(config.withToken);
+        return config.withToken === false
+          ? config
+          : {
+              ...config,
+              headers: { ...config.headers, Authorization: "Bearer token" },
+            };
+      },
+    });
+
+    await client.get("/public", undefined, { withToken: false });
+    await client.post("/private", { name: "Ada" }, { withToken: true });
+
+    expect(withTokenValues).toEqual([false, true]);
+    expect(adapter.calls.map(({ withToken }) => withToken)).toEqual([false, true]);
+    expect(adapter.calls[0]?.headers).not.toHaveProperty("Authorization");
+    expect(adapter.calls[1]?.headers).toMatchObject({ Authorization: "Bearer token" });
   });
 
   test("lets a response rejection interceptor recover from a normalized network error", async () => {

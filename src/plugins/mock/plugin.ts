@@ -47,7 +47,7 @@ export function createMockPlugin(options: MockPluginOptions): MockPlugin {
     },
     setup(client) {
       return client.useRequestResolver(async (config) => {
-        const inlineMock = getInlineMock(config.meta?.mock);
+        const inlineMock = getInlineMock(config.mock ?? config.meta?.mock);
         const route =
           inlineMock.type === "route"
             ? inlineMock.route

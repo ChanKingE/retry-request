@@ -109,6 +109,59 @@ describe("createMockPlugin", () => {
     });
   });
 
+  test("uses request mock field before request meta mock", async () => {
+    const adapter = new RecordingAdapter();
+    const client = new RequestClient(adapter);
+    const mock = createMockPlugin({
+      routes: [{ url: "/route-only", response: { source: "route" } }],
+    });
+    client.use(mock);
+
+    await expect(
+      client.get("/users", undefined, {
+        mock: {
+          url: "/not-used-for-matching",
+          response: { source: "config-mock" },
+          status: 201,
+        },
+        meta: {
+          mock: { source: "meta-mock" },
+        },
+      }),
+    ).resolves.toEqual({ source: "config-mock" });
+    expect(adapter.calls).toHaveLength(0);
+    expect(mock.history[0]).toMatchObject({
+      matched: true,
+      route: {
+        response: { source: "config-mock" },
+        status: 201,
+      },
+    });
+  });
+
+  test("uses request meta mock factory with final config", async () => {
+    const adapter = new RecordingAdapter();
+    const client = new RequestClient(adapter, { baseURL: "https://api.example.com" });
+    const mock = createMockPlugin({ routes: [] });
+    client.use(mock);
+
+    await expect(
+      client.get("/users", { page: 1 }, {
+        meta: {
+          mock: (config: RequestConfig) => ({
+            url: config.url,
+            params: config.params,
+          }),
+        },
+      }),
+    ).resolves.toEqual({
+      url: "https://api.example.com/users",
+      params: { page: 1 },
+    });
+    expect(adapter.calls).toHaveLength(0);
+    expect(mock.history[0]).toMatchObject({ matched: true, route: undefined });
+  });
+
   test("always passes unmatched requests through to the adapter", async () => {
     const adapter = new RecordingAdapter();
     const client = new RequestClient(adapter);

@@ -20,7 +20,12 @@ export type MockResponseValue =
 /** 根据最终请求配置动态生成 Mock 响应体的函数。 */
 export type MockResponseFactory<T = MockResponseValue> = (config: RequestConfig) => T | Promise<T>;
 
-/** 可通过 `config.meta.mock` 直接指定的 Mock 响应。 */
+/**
+ * 可通过 `config.mock` 直接指定的 Mock 响应。
+ *
+ * @remarks `config.mock` 为普通对象或函数时会直接作为响应体返回；为
+ * {@link MockRoute} 时会跳过路由匹配并按该路由生成响应。
+ */
 export type InlineMockResponse<T = MockResponseValue> = T | MockResponseFactory<T>;
 
 /**
@@ -29,7 +34,7 @@ export type InlineMockResponse<T = MockResponseValue> = T | MockResponseFactory<
  * @typeParam T - Mock 响应体类型。
  */
 export interface MockRoute<T = MockResponseValue> {
-  /** URL 匹配规则。字符串匹配针对合并 baseURL 后的完整 URL。 */
+  /** URL 匹配规则。字符串匹配针对合并 baseURL 后的完整 URL；作为 `config.mock` 使用时不参与匹配。 */
   url: MockUrlMatcher;
   /** 允许的请求方法；省略时匹配所有方法。 */
   method?: HttpMethod | readonly HttpMethod[];
@@ -45,6 +50,16 @@ export interface MockRoute<T = MockResponseValue> {
   delay?: number;
   /** 是否只匹配一次。@defaultValue `false` */
   once?: boolean;
+}
+
+/** 单次请求可直接指定的 Mock 配置。 */
+export type MockConfig = InlineMockResponse | MockRoute;
+
+declare module "@/types.ts" {
+  interface RequestConfigExtensions {
+    /** 单次请求的内联 Mock 响应或 Mock 路由；优先级高于 `meta.mock`。 */
+    mock?: MockConfig;
+  }
 }
 
 /** Mock 插件的创建配置。 */

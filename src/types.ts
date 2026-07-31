@@ -5,6 +5,22 @@ interface ClientMeta {
 }
 
 /**
+ * 单次请求配置的业务扩展点。
+ *
+ * @remarks
+ * 业务项目可通过 TypeScript 模块声明合并增加自定义字段，例如：
+ *
+ * ```ts
+ * declare module "@chan98/request" {
+ *   interface RequestConfigExtensions {
+ *     withToken?: boolean;
+ *   }
+ * }
+ * ```
+ */
+export interface RequestConfigExtensions {}
+
+/**
  * 客户端支持的 HTTP 请求方法。
  *
  * @remarks
@@ -83,7 +99,7 @@ export interface RetryPolicy {
  * @typeParam TBody - 查询参数类型，具体可用结构由当前适配器决定。
  * @typeParam TData - 请求体类型。
  */
-export interface RequestConfig<TBody = unknown> {
+export interface RequestConfig<TBody = unknown> extends RequestConfigExtensions {
   /** 请求地址。相对地址会与客户端的 `baseURL` 拼接。 */
   url: string;
   /**

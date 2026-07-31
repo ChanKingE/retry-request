@@ -110,6 +110,64 @@ describe("createDedupePlugin", () => {
     ).resolves.toEqual({ call: 2 });
   });
 
+  test("uses request meta dedupe window before plugin options", async () => {
+    const adapter = new CountingAdapter();
+    const client = new RequestClient(adapter);
+    client.use(createDedupePlugin({ windowMs: 5_000 }));
+
+    await expect(
+      client.get("/status", undefined, { meta: { dedupe: { windowMs: 0 } } }),
+    ).resolves.toEqual({ call: 1 });
+    await expect(
+      client.get("/status", undefined, { meta: { dedupe: { windowMs: 0 } } }),
+    ).resolves.toEqual({ call: 2 });
+    expect(adapter.calls).toHaveLength(2);
+  });
+
+  test("uses request meta dedupe key before plugin options", async () => {
+    const adapter = new CountingAdapter();
+    const client = new RequestClient(adapter);
+    client.use(createDedupePlugin({ createKey: () => "plugin-key" }));
+
+    await client.get("/first", undefined, {
+      meta: { dedupe: { createKey: () => "request-key" } },
+    });
+    await expect(
+      client.get("/second", undefined, {
+        meta: { dedupe: { createKey: () => "request-key" } },
+      }),
+    ).resolves.toEqual({ call: 1 });
+    expect(adapter.calls).toHaveLength(1);
+  });
+
+  test("uses request dedupe field before request meta and plugin options", async () => {
+    const adapter = new CountingAdapter();
+    const client = new RequestClient(adapter);
+    client.use(createDedupePlugin({ windowMs: 5_000, createKey: () => "plugin-key" }));
+
+    await client.get("/first", undefined, {
+      dedupe: { createKey: () => "config-key" },
+      meta: { dedupe: { windowMs: 0, createKey: () => "meta-key" } },
+    });
+    await expect(
+      client.get("/second", undefined, {
+        dedupe: { createKey: () => "config-key" },
+        meta: { dedupe: { windowMs: 0, createKey: () => "meta-key" } },
+      }),
+    ).resolves.toEqual({ call: 1 });
+    expect(adapter.calls).toHaveLength(1);
+  });
+
+  test("rejects invalid request meta dedupe windows", async () => {
+    const adapter = new CountingAdapter();
+    const client = new RequestClient(adapter);
+    client.use(createDedupePlugin());
+
+    await expect(
+      client.get("/status", undefined, { meta: { dedupe: { windowMs: Number.NaN } } }),
+    ).rejects.toThrow("windowMs must be between");
+  });
+
   test("lets a duplicate caller stop waiting without aborting the shared request", async () => {
     let resolveRequest: ((response: HttpResponse) => void) | undefined;
     const adapter: HttpAdapter = {

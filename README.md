@@ -147,6 +147,35 @@ await client.get("/users", undefined, {
 // { application: "admin", requestId: "req-1", source: "page" }
 ```
 
+## 扩展请求配置
+
+业务项目需要给 `RequestConfig` 增加字段时，扩展 `RequestConfigExtensions` 即可。扩展后的字段会
+出现在 `request`、`get`、`post` 等单次请求配置、请求拦截器、插件和适配器接收到的最终
+`config` 中。
+
+```ts
+declare module "@chan98/request" {
+  interface RequestConfigExtensions {
+    withToken?: boolean;
+  }
+}
+
+client.useRequestInterceptor({
+  fulfilled(config) {
+    if (config.withToken === false) return config;
+    return {
+      ...config,
+      headers: {
+        ...config.headers,
+        Authorization: `Bearer ${getToken()}`,
+      },
+    };
+  },
+});
+
+await client.get("/public-profile", undefined, { withToken: false });
+```
+
 ## 拦截器
 
 ```ts
@@ -390,6 +419,10 @@ const client = createHttpClient({ adapter });
 
 ## 插件
 
+内置插件的初始化参数都可被单次请求配置覆盖。优先级固定为：
+`config.[插件名]` > `config.meta.[插件名]` > `createXxxPlugin(options)` > 插件默认值。当前内置插件
+支持 `config.dedupe`、`config.mock` 和 `config.logger`，并兼容旧的 `meta.*` 写法。
+
 ### 请求去重插件
 
 相同 HTTP 方法、完整地址、查询参数和请求体在默认 2 秒窗口内只会执行一次底层请求，后续调用
@@ -426,6 +459,19 @@ client.use(
     createKey: (config) => (config.meta?.dedupeKey ? String(config.meta.dedupeKey) : undefined),
   }),
 );
+```
+
+单次请求可通过 `dedupe` 覆盖去重配置。例如临时关闭当前请求的去重，或为当前请求提供
+专用去重键：
+
+```ts
+await client.get("/users", { page: 1 }, { dedupe: { windowMs: 0 } });
+
+await client.get("/jobs", undefined, {
+  dedupe: {
+    createKey: (config) => String(config.headers?.["x-job-id"]),
+  },
+});
 ```
 
 ### Mock 插件
@@ -507,6 +553,34 @@ const mock = createMockPlugin({
 `mock.history`，包括未匹配并透传的请求。`mock.reset()` 会清空历史，同时恢复已消费的
 `once` 路由。延迟等待遵守请求的 `AbortSignal`，取消请求不会继续等待。
 
+单次请求可通过 `mock` 跳过初始化 `routes` 匹配。`mock` 是普通对象或函数时直接作为响应体返回；
+是包含 `url` 和 `response` 的 `MockRoute` 对象时，直接作为命中的路由处理，路由的 `status`、
+`statusText`、`headers`、`delay` 和 `once` 继续生效。`mock` 优先级高于兼容写法
+`meta.mock`。
+
+```ts
+await client.post(
+  "/users",
+  { name: "Alice" },
+  {
+    mock: {
+      code: 0,
+      message: "你好",
+      data: [{ id: "Route000210" }],
+    },
+  },
+);
+
+await client.get("/users/1", undefined, {
+  mock: {
+    url: "/not-used-for-matching",
+    response: { code: 0, data: { id: "1", name: "Alice" } },
+    status: 201,
+    headers: { "x-meta-mock": "true" },
+  },
+});
+```
+
 > 默认客户端仍会对 Mock 响应执行响应拦截器和业务响应解包。若启用了默认解包，Mock 数据可按
 > `{ code: 0, data: ... }` 返回；不含 `code` 的响应则保持原样。
 
@@ -520,6 +594,15 @@ const removeLogger = client.use(
     logger: console,
   }),
 );
+
+await client.get("/users", undefined, {
+  logger: {
+    logger: {
+      debug: (...args) => debugReporter.send(args),
+      error: (...args) => errorReporter.send(args),
+    },
+  },
+});
 
 removeLogger();
 ```
