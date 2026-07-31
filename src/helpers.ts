@@ -100,7 +100,7 @@ export function getAbortReason(signal?: AbortSignal): Error {
   return error;
 }
 
-export function resolveURL(baseURL: string | undefined, url: string): string {
+export function resolveURL(baseURL: string = "", url: string): string {
   if (!baseURL || /^(?:[a-z]+:)?\/\//i.test(url)) return url;
   return `${baseURL.replace(/\/$/, "")}/${url.replace(/^\//, "")}`;
 }
