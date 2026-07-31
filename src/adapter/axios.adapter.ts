@@ -1,18 +1,19 @@
 import { HttpError, NetworkError, TimeoutError } from "@/error.ts";
 import { getAbortReason } from "@/helpers.ts";
-import type { HttpAdapter, HttpMethod, HttpResponse, RequestConfig } from "@/types.ts";
+import type { HttpAdapter, HttpResponse, RequestConfig } from "@/types.ts";
 
-/** AxiosAdapter 传给 Axios 实例的最小请求配置。 */
+/** Axios 请求配置的结构化兼容类型。 */
 export interface AxiosRequestConfigLike {
-  url: string;
+  url?: string;
   baseURL?: string;
-  method?: HttpMethod;
+  method?: string;
   params?: unknown;
   data?: unknown;
-  headers?: Record<string, string>;
+  headers?: unknown;
   timeout?: number;
   withCredentials?: boolean;
   signal?: AbortSignal;
+  [key: string]: unknown;
 }
 
 /** Axios 响应头对象的最小兼容结构。 */
@@ -33,7 +34,7 @@ export interface AxiosResponseLike<T = unknown> {
 /** AxiosAdapter 依赖的最小 Axios 实例接口。 */
 export interface AxiosInstanceLike {
   /** Axios 实例的默认配置；Axios create() 通常会在此暴露 baseURL。 */
-  defaults?: AxiosAdapterOptions;
+  defaults?: Partial<AxiosRequestConfigLike>;
   /** 使用完整配置执行请求。 */
   request<T = unknown>(config: AxiosRequestConfigLike): Promise<AxiosResponseLike<T>>;
 }
@@ -51,10 +52,11 @@ export interface AxiosErrorLike extends Error {
 /** Axios 适配器配置。 */
 export interface AxiosAdapterOptions {
   /**
-   * 透传给每次 Axios 请求的额外配置。
+   * 作为所有请求基础默认值的 Axios 配置。
    *
-   * @remarks URL、方法、参数、请求体、请求头、超时、凭证和 signal 会被单次 RequestConfig 覆盖。
+   * @remarks 会先与 `requestConfig` 合并，再被单次 `RequestConfig` 覆盖。
    */
+  requestConfig?: Partial<AxiosRequestConfigLike>;
   [key: string]: unknown;
 }
 
@@ -84,9 +86,7 @@ export class AxiosAdapter implements HttpAdapter {
   constructor(
     readonly instance: AxiosInstanceLike,
     readonly options: AxiosAdapterOptions = {},
-  ) {
-    this.instance.defaults = options;
-  }
+  ) {}
 
   /**
    * 使用 Axios 实例执行一次请求。
@@ -102,12 +102,15 @@ export class AxiosAdapter implements HttpAdapter {
   async request<T>(config: RequestConfig): Promise<HttpResponse<T>> {
     if (config.signal?.aborted) throw getAbortReason(config.signal);
 
-    const baseURL = config.baseURL ?? <string>this.instance.defaults?.baseURL ?? "";
+    const { requestConfig: presetRequestConfig = {}, ...adapterConfig } = this.options;
+    const requestConfig = { ...adapterConfig, ...presetRequestConfig };
+    const baseURL =
+      config.baseURL ?? requestConfig.baseURL ?? this.instance.defaults?.baseURL ?? "";
     const url = config.url.replace(new RegExp(`^${baseURL}`, "i"), "");
 
     try {
       const response = await this.instance.request<T>({
-        ...this.options,
+        ...requestConfig,
         ...config,
         url,
         baseURL,
