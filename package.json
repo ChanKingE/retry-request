@@ -2,6 +2,14 @@
   "name": "@chan98/request",
   "version": "1.0.19-beta.10",
   "description": "请求库核心实现与配套工具,提供Fetch、Axios、UniApp三种平台适配器,支持请求拦截器、响应拦截器、重试机制等功能。",
+  "keywords": [
+    "axios",
+    "fetch",
+    "mock",
+    "request",
+    "retry",
+    "uniapp"
+  ],
   "homepage": "https://github.com/ChanKingE/retry-request#readme",
   "bugs": {
     "url": "https://github.com/ChanKingE/retry-request/issues"
@@ -35,14 +43,14 @@
     "prepublishOnly": "vp pack",
     "prepare": "vp config"
   },
-  "dependencies": {
-    "axios": "^1.19.0"
-  },
   "devDependencies": {
     "@types/node": "^26.1.1",
     "bumpp": "^11.1.0",
     "typescript": "^7.0.2",
     "vite-plus": "^0.2.4"
+  },
+  "optionalDependencies": {
+    "axios": "*"
   },
   "packageManager": "bun@1.2.19"
 }
