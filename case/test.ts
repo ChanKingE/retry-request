@@ -5,7 +5,6 @@ const client = createHttpClient({
   timeout: 5_000,
   withCredentials: true,
   headers: { "x-client-version": "1.0.0" },
-  meta: { application: "request-demo", environment: "local" },
 });
 client.use(
   createMockPlugin({
@@ -29,7 +28,6 @@ client.use(
     ],
   }),
 );
-// client.use(createLoggerPlugin());
 
 async function run() {
   const baseURL = "/api";
