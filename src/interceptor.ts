@@ -1,4 +1,4 @@
-import type { InterceptorInput, InterceptorRejected } from "@/types.ts";
+import type { Interceptor, InterceptorInput, InterceptorRejected } from "@/types.ts";
 
 /**
  * 管理按注册顺序执行、可随时卸载的 Promise 拦截器链。
@@ -10,7 +10,24 @@ import type { InterceptorInput, InterceptorRejected } from "@/types.ts";
  * 当前拦截器的 `fulfilled` 抛错时也会交给同一拦截器的 `rejected`。
  */
 export class InterceptorManager<T = unknown, E = unknown> {
-  readonly #interceptors: InterceptorInput<T, E>[] = [];
+  readonly #interceptors: Interceptor<T, E>[] = [];
+
+  #normalizedInterceptor = (
+    interceptor: InterceptorInput<T, E> = {},
+    rejected?: InterceptorRejected<T, E>,
+  ): Interceptor<T, E> => {
+    const normalizedInterceptor: Interceptor<T, E> = {
+      fulfilled: void 0,
+      rejected,
+    };
+    if (typeof interceptor === "function") {
+      normalizedInterceptor.fulfilled = interceptor;
+    } else {
+      normalizedInterceptor.fulfilled = interceptor.fulfilled;
+      normalizedInterceptor.rejected = interceptor.rejected;
+    }
+    return normalizedInterceptor;
+  };
 
   /**
    * 注册拦截器。
@@ -19,11 +36,8 @@ export class InterceptorManager<T = unknown, E = unknown> {
    * @param rejected - `interceptor` 为函数时可选的失败处理器。
    * @returns 幂等卸载函数；多次调用不会抛错。
    */
-  use(interceptor: InterceptorInput<T, E>, rejected?: InterceptorRejected<T, E>): () => void {
-    const normalizedInterceptor =
-      typeof interceptor === "function" && rejected
-        ? { fulfilled: interceptor, rejected }
-        : interceptor;
+  use(interceptor: InterceptorInput<T, E> = {}, rejected?: InterceptorRejected<T, E>): () => void {
+    const normalizedInterceptor = this.#normalizedInterceptor(interceptor, rejected);
     this.#interceptors.push(normalizedInterceptor);
     return () => this.eject(normalizedInterceptor);
   }
@@ -34,7 +48,8 @@ export class InterceptorManager<T = unknown, E = unknown> {
    * @param interceptor - 注册时传入的同一个对象引用。
    */
   eject(interceptor: InterceptorInput<T, E>): void {
-    const index = this.#interceptors.indexOf(interceptor);
+    const normalizedInterceptor = this.#normalizedInterceptor(interceptor);
+    const index = this.#interceptors.indexOf(normalizedInterceptor);
     if (index >= 0) this.#interceptors.splice(index, 1);
   }
 
@@ -53,13 +68,9 @@ export class InterceptorManager<T = unknown, E = unknown> {
     }) as Promise<T>;
 
     for (const interceptor of this.#interceptors) {
-      const rejected =
-        typeof interceptor === "function" || !interceptor.rejected
-          ? undefined
-          : interceptor.rejected;
       const handlerRejected = async (error: E) => {
-        if (!rejected) throw error;
-        const recoveredValue = await rejected(error, latestValue);
+        if (!interceptor.rejected) throw error;
+        const recoveredValue = await interceptor.rejected(error, latestValue);
         latestValue = recoveredValue;
         return recoveredValue;
       };

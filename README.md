@@ -205,14 +205,24 @@ const removeReporter = client.useResponseInterceptor({
   },
 });
 
+// 也可以使用 fulfilled、rejected 两个函数参数：
+client.useResponseInterceptor(
+  (response) => response,
+  (error, latestResponse) => {
+    reportError(error);
+    return Promise.reject(error);
+  },
+);
+
 // 不再需要时卸载，避免重复注册。
 removeAuth();
 removeReporter();
 ```
 
-拦截器按注册顺序组成 Promise 链。`fulfilled` 的返回值会传给下一个成功处理器，抛出的错误会
-进入后续 `rejected(error, latestValue)` 处理器；第二个参数是失败前最近一次成功值，如果请求
-尚未产生任何值便失败则为 `undefined`。`rejected` 可以返回标准值来恢复请求链。
+拦截器按注册顺序组成 Promise 链。`fulfilled` 的返回值会传给下一个成功处理器；当前
+`fulfilled` 抛出的错误会立即交给同一个拦截器的 `rejected`，未处理的错误才会进入后续
+`rejected(error, latestValue)` 处理器。第二个参数是失败前最近一次成功值，如果请求尚未产生
+任何值便失败则为 `undefined`。`rejected` 可以返回标准值来恢复请求链。
 
 ## 重试
 
