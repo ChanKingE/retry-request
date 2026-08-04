@@ -598,6 +598,22 @@ describe("RequestClient", () => {
 });
 
 describe("InterceptorManager", () => {
+  test("accepts fulfilled and rejected handlers as two arguments", async () => {
+    const manager = new InterceptorManager<{ count: number }, Error>();
+    const remove = manager.use(
+      (value) => ({ count: value.count + 1 }),
+      (error, latestValue) => {
+        expect(error.message).toBe("request failed");
+        expect(latestValue).toBeUndefined();
+        return { count: 1 };
+      },
+    );
+
+    await expect(manager.run(Promise.reject(new Error("request failed")))).resolves.toEqual({ count: 1 });
+    remove();
+    await expect(manager.run({ count: 0 })).resolves.toEqual({ count: 0 });
+  });
+
   test("passes the latest successful value to a rejection interceptor", async () => {
     const manager = new InterceptorManager<{ count: number }, Error>();
     manager.use({
@@ -617,6 +633,22 @@ describe("InterceptorManager", () => {
         return { count: (latestValue?.count ?? 0) + 1 };
       },
     });
+
+    await expect(manager.run({ count: 0 })).resolves.toEqual({ count: 2 });
+  });
+
+  test("passes errors from the current fulfilled handler to its rejected handler", async () => {
+    const manager = new InterceptorManager<{ count: number }, Error>();
+    manager.use(
+      async () => {
+        throw new Error("fulfilled failed");
+      },
+      (error, latestValue) => {
+        expect(error.message).toBe("fulfilled failed");
+        expect(latestValue).toEqual({ count: 0 });
+        return { count: 2 };
+      },
+    );
 
     await expect(manager.run({ count: 0 })).resolves.toEqual({ count: 2 });
   });
