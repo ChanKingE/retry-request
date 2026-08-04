@@ -207,7 +207,13 @@ export interface Interceptor<T, E = unknown> {
 /** 直接作为成功处理器注册的函数式拦截器。 */
 export type InterceptorFulfilled<T> = (value: T) => T | Promise<T>;
 
-/** 可注册的拦截器入参，函数会被直接作为 `fulfilled` 处理。 */
+/** 可作为第二个参数注册的失败处理器。 */
+export type InterceptorRejected<T, E = unknown> = (
+  error: E,
+  value: T | undefined,
+) => T | Promise<T>;
+
+/** 可注册的拦截器入参；函数会作为 `fulfilled`，并可搭配第二个 `rejected` 参数。 */
 export type InterceptorInput<T, E = unknown> = Interceptor<T, E> | InterceptorFulfilled<T>;
 
 /**
@@ -313,6 +319,7 @@ export interface RequestClientLike {
    */
   useRequestInterceptor<T extends Record<string, unknown>>(
     interceptor: InterceptorInput<RequestConfig<T>>,
+    rejected?: InterceptorRejected<RequestConfig<T>>,
   ): () => void;
   /**
    * 注册响应拦截器。
@@ -320,7 +327,10 @@ export interface RequestClientLike {
    * @param interceptor - 插件提供的响应拦截器。
    * @returns 对应拦截器的卸载函数。
    */
-  useResponseInterceptor<T>(interceptor: InterceptorInput<HttpResponse<T>>): () => void;
+  useResponseInterceptor<T>(
+    interceptor: InterceptorInput<HttpResponse<T>>,
+    rejected?: InterceptorRejected<HttpResponse<T>>,
+  ): () => void;
   /**
    * 注册请求解析器。
    *

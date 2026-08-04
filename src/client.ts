@@ -8,6 +8,7 @@ import type {
   HttpMethod,
   HttpResponse,
   InterceptorInput,
+  InterceptorRejected,
   RequestConfig,
   RequestHandler,
   RequestMiddleware,
@@ -56,6 +57,21 @@ export class RequestClient {
   }
 
   /**
+   * 拦截器别名，与Axios同步
+   */
+  get interceptors() {
+    return {
+      /** 请求拦截器 */
+      request: {
+        use: this.useRequestInterceptor,
+      },
+      response: {
+        use: this.useResponseInterceptor,
+      },
+    };
+  }
+
+  /**
    * 注册请求拦截器。
    *
    * @param interceptor - 接收并可修改最终请求配置的拦截器。
@@ -63,8 +79,12 @@ export class RequestClient {
    */
   useRequestInterceptor<T extends Record<string, unknown> = Record<string, unknown>>(
     interceptor: InterceptorInput<RequestConfig<T>>,
+    rejected?: InterceptorRejected<RequestConfig<T>>,
   ): () => void {
-    return this.#requestInterceptors.use(interceptor as InterceptorInput<RequestConfig>);
+    return this.#requestInterceptors.use(
+      interceptor as InterceptorInput<RequestConfig>,
+      rejected as InterceptorRejected<RequestConfig> | undefined,
+    );
   }
 
   /**
@@ -74,8 +94,14 @@ export class RequestClient {
    * @returns 卸载函数；卸载后该拦截器不再参与后续请求。
    * @remarks `rejected` 返回有效响应时可以把失败链恢复为成功链。TODO
    */
-  useResponseInterceptor<T = unknown>(interceptor: InterceptorInput<HttpResponse<T>>): () => void {
-    return this.#responseInterceptors.use(interceptor as InterceptorInput<HttpResponse>);
+  useResponseInterceptor<T = unknown>(
+    interceptor: InterceptorInput<HttpResponse<T>>,
+    rejected?: InterceptorRejected<HttpResponse<T>>,
+  ): () => void {
+    return this.#responseInterceptors.use(
+      interceptor as InterceptorInput<HttpResponse>,
+      rejected as InterceptorRejected<HttpResponse> | undefined,
+    );
   }
 
   /**
