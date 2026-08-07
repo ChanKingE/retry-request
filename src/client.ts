@@ -205,6 +205,7 @@ export class RequestClient {
     }
 
     const initialConfig = this.#applyDefaults(config);
+    console.log(initialConfig);
 
     try {
       const interceptedConfig = await this.#requestInterceptors.run(initialConfig);
@@ -400,23 +401,10 @@ export class RequestClient {
   }
 
   #applyDefaults<TBody>(config: RequestOptions<TBody>): RequestOptions {
-    const baseURL = config.baseURL ?? this.#defaults.baseURL;
-    const timeout = config.timeout ?? this.#defaults.timeout;
-    const retry = config.retry ?? this.#defaults.retry;
-    const withCredentials = config.withCredentials ?? this.#defaults.withCredentials;
-    const headers = { ...this.#defaults.headers, ...config.headers };
-    const meta = { ...this.#defaults.meta, ...config.meta };
-
     return {
+      ...this.#defaults,
       ...config,
-      baseURL,
-      url: config.url,
       method: normalizeMethod(config.method),
-      timeout,
-      retry,
-      withCredentials,
-      headers,
-      meta,
     };
   }
 
