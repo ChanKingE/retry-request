@@ -1,10 +1,10 @@
-import type { HttpMethod, RequestConfig, RequestPlugin } from "@/types.ts";
+import type { HttpMethod, RequestOptions, RequestPlugin } from "@/types.ts";
 
 /** URL 匹配器：字符串精确匹配、正则匹配，或自定义同步/异步判断函数。 */
 export type MockUrlMatcher =
   | string
   | RegExp
-  | ((url: string, config: RequestConfig) => boolean | Promise<boolean>);
+  | ((url: string, config: RequestOptions) => boolean | Promise<boolean>);
 
 /** Mock 路由可直接返回的响应体类型。 */
 export type MockResponseValue =
@@ -18,7 +18,7 @@ export type MockResponseValue =
   | undefined;
 
 /** 根据最终请求配置动态生成 Mock 响应体的函数。 */
-export type MockResponseFactory<T = MockResponseValue> = (config: RequestConfig) => T | Promise<T>;
+export type MockResponseFactory<T = MockResponseValue> = (config: RequestOptions) => T | Promise<T>;
 
 /**
  * 可通过 `config.mock` 直接指定的 Mock 响应。
@@ -56,7 +56,7 @@ export interface MockRoute<T = MockResponseValue> {
 export type MockConfig = InlineMockResponse | MockRoute;
 
 declare module "@/types.ts" {
-  interface RequestConfigExtensions {
+  interface RequestOptionsExtensions {
     /** 单次请求的内联 Mock 响应或 Mock 路由；优先级高于 `meta.mock`。 */
     mock?: MockConfig;
   }
@@ -75,7 +75,7 @@ export interface MockRequestRecord {
   /** 请求发生时的 Unix 时间戳。 */
   timestamp: number;
   /** 请求的最终配置快照。 */
-  config: RequestConfig;
+  config: RequestOptions;
   /** 是否命中了 Mock 路由。 */
   matched: boolean;
   /** 命中的路由；未匹配时为空。 */

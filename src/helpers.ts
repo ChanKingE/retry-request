@@ -1,5 +1,10 @@
 import { BusinessError } from "@/error.ts";
-import type { HttpResponse, Interceptor, RequestConfig, ResponseEnvelopeOptions } from "@/types.ts";
+import type {
+  HttpResponse,
+  Interceptor,
+  RequestOptions,
+  ResponseEnvelopeOptions,
+} from "@/types.ts";
 import type { RequestClient } from "@/client.ts";
 
 /**
@@ -26,7 +31,7 @@ export function createRequest(client: RequestClient): {
    * @typeParam TData - 请求体类型。
    * @param config - 请求配置；传入的 signal 会被共享 signal 覆盖。
    */
-  execute: <T, TBody = unknown>(config: RequestConfig<TBody>) => Promise<T>;
+  execute: <T, TBody = unknown>(config: RequestOptions<TBody>) => Promise<T>;
   /**
    * 取消所有由该控制对象发起且尚未完成的请求。
    *
@@ -36,7 +41,7 @@ export function createRequest(client: RequestClient): {
 } {
   const controller = new AbortController();
   return {
-    execute: <T, TBody = unknown>(config: RequestConfig<TBody>) =>
+    execute: <T, TBody = unknown>(config: RequestOptions<TBody>) =>
       client.request<T, TBody>({ ...config, signal: controller.signal }),
     abort: (reason?: unknown) => controller.abort(reason),
   };

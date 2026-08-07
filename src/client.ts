@@ -9,14 +9,14 @@ import type {
   HttpResponse,
   InterceptorInput,
   InterceptorRejected,
-  RequestConfig,
+  RequestOptions,
   RequestHandler,
   RequestMiddleware,
   RequestPlugin,
   RequestResolver,
 } from "./types.ts";
-type UrlRequestConfig<TBody = unknown> = Omit<RequestConfig<TBody>, "url" | "method">;
-type MethodRequestConfig<TBody = unknown> = Omit<RequestConfig<TBody>, "method">;
+type UrlRequestOptions<TBody = unknown> = Omit<RequestOptions<TBody>, "url" | "method">;
+type MethodRequestOptions<TBody = unknown> = Omit<RequestOptions<TBody>, "method">;
 
 /**
  * 请求核心客户端，负责默认配置、拦截器、适配器、重试和错误标准化的调度。
@@ -34,7 +34,7 @@ type MethodRequestConfig<TBody = unknown> = Omit<RequestConfig<TBody>, "method">
  * ```
  */
 export class RequestClient {
-  readonly #requestInterceptors = new InterceptorManager<RequestConfig>();
+  readonly #requestInterceptors = new InterceptorManager<RequestOptions>();
   readonly #responseInterceptors = new InterceptorManager<HttpResponse<unknown>>();
   readonly #requestResolvers: RequestResolver[] = [];
   readonly #requestMiddlewares: RequestMiddleware[] = [];
@@ -47,7 +47,7 @@ export class RequestClient {
    * 创建请求客户端。
    *
    * @param adapter - 实际执行 HTTP 请求的底层适配器。
-   * @param options - 全局默认配置；单次请求中的同名配置优先级更高。
+   * @param defaults - 全局默认配置；单次请求中的同名配置优先级更高。
    */
   constructor(
     readonly adapter: HttpAdapter,
@@ -78,12 +78,12 @@ export class RequestClient {
    * @returns 卸载函数；卸载后该拦截器不再参与后续请求。
    */
   useRequestInterceptor<T extends Record<string, unknown> = Record<string, unknown>>(
-    interceptor: InterceptorInput<RequestConfig<T>>,
-    rejected?: InterceptorRejected<RequestConfig<T>>,
+    interceptor: InterceptorInput<RequestOptions<T>>,
+    rejected?: InterceptorRejected<RequestOptions<T>>,
   ): () => void {
     return this.#requestInterceptors.use(
-      interceptor as InterceptorInput<RequestConfig>,
-      rejected as InterceptorRejected<RequestConfig> | undefined,
+      interceptor as InterceptorInput<RequestOptions>,
+      rejected as InterceptorRejected<RequestOptions> | undefined,
     );
   }
 
@@ -192,7 +192,7 @@ export class RequestClient {
    * @throws {@link BusinessError} 已安装的业务响应拦截器判定业务失败。
    * @remarks 主动取消产生的 `AbortError` 保持原样，不会转换为 NetworkError。
    */
-  async request<T, TBody = unknown>(config: RequestConfig<TBody>): Promise<T> {
+  async request<T, TBody = unknown>(config: RequestOptions<TBody>): Promise<T> {
     while (this.#onceConsumption) await this.#onceConsumption;
 
     const onceCleanups = [...this.#oncePluginCleanups.values()];
@@ -266,11 +266,11 @@ export class RequestClient {
    * @param config - 除 URL 和方法外的配置覆盖项；查询参数通过 `config.params` 传入。
    * @returns 响应数据。
    */
-  get<T, TParams = unknown>(config: MethodRequestConfig<TParams>): Promise<T>;
-  get<T, TParams = unknown>(url: string, config?: UrlRequestConfig<TParams>): Promise<T>;
+  get<T, TParams = unknown>(config: MethodRequestOptions<TParams>): Promise<T>;
+  get<T, TParams = unknown>(url: string, config?: UrlRequestOptions<TParams>): Promise<T>;
   get<T, TParams = unknown>(
-    urlOrConfig: string | MethodRequestConfig<TParams>,
-    config?: UrlRequestConfig<TParams>,
+    urlOrConfig: string | MethodRequestOptions<TParams>,
+    config?: UrlRequestOptions<TParams>,
   ): Promise<T> {
     return this.request<T, TParams>(normalizeUrlMethodRequest("GET", urlOrConfig, config));
   }
@@ -284,11 +284,11 @@ export class RequestClient {
    * @param config - 除 URL 和方法外的配置覆盖项；查询参数通过 `config.params` 传入。
    * @returns 响应数据。
    */
-  delete<T, TParams = unknown>(config: MethodRequestConfig<TParams>): Promise<T>;
-  delete<T, TParams = unknown>(url: string, config?: UrlRequestConfig<TParams>): Promise<T>;
+  delete<T, TParams = unknown>(config: MethodRequestOptions<TParams>): Promise<T>;
+  delete<T, TParams = unknown>(url: string, config?: UrlRequestOptions<TParams>): Promise<T>;
   delete<T, TParams = unknown>(
-    urlOrConfig: string | MethodRequestConfig<TParams>,
-    config?: UrlRequestConfig<TParams>,
+    urlOrConfig: string | MethodRequestOptions<TParams>,
+    config?: UrlRequestOptions<TParams>,
   ): Promise<T> {
     return this.request<T, TParams>(normalizeUrlMethodRequest("DELETE", urlOrConfig, config));
   }
@@ -302,11 +302,11 @@ export class RequestClient {
    * @param config - 除 URL 和方法外的配置覆盖项；查询参数通过 `config.params` 传入。
    * @returns 响应数据。
    */
-  head<T, TParams = unknown>(config: MethodRequestConfig<TParams>): Promise<T>;
-  head<T, TParams = unknown>(url: string, config?: UrlRequestConfig<TParams>): Promise<T>;
+  head<T, TParams = unknown>(config: MethodRequestOptions<TParams>): Promise<T>;
+  head<T, TParams = unknown>(url: string, config?: UrlRequestOptions<TParams>): Promise<T>;
   head<T, TParams = unknown>(
-    urlOrConfig: string | MethodRequestConfig<TParams>,
-    config?: UrlRequestConfig<TParams>,
+    urlOrConfig: string | MethodRequestOptions<TParams>,
+    config?: UrlRequestOptions<TParams>,
   ): Promise<T> {
     return this.request<T, TParams>(normalizeUrlMethodRequest("HEAD", urlOrConfig, config));
   }
@@ -320,11 +320,11 @@ export class RequestClient {
    * @param config - 除 URL 和方法外的配置覆盖项；查询参数通过 `config.params` 传入。
    * @returns 响应数据。
    */
-  options<T, TParams = unknown>(config: MethodRequestConfig<TParams>): Promise<T>;
-  options<T, TParams = unknown>(url: string, config?: UrlRequestConfig<TParams>): Promise<T>;
+  options<T, TParams = unknown>(config: MethodRequestOptions<TParams>): Promise<T>;
+  options<T, TParams = unknown>(url: string, config?: UrlRequestOptions<TParams>): Promise<T>;
   options<T, TParams = unknown>(
-    urlOrConfig: string | MethodRequestConfig<TParams>,
-    config?: UrlRequestConfig<TParams>,
+    urlOrConfig: string | MethodRequestOptions<TParams>,
+    config?: UrlRequestOptions<TParams>,
   ): Promise<T> {
     return this.request<T, TParams>(normalizeUrlMethodRequest("OPTIONS", urlOrConfig, config));
   }
@@ -340,12 +340,16 @@ export class RequestClient {
    * @returns 响应数据。
    * @remarks POST 默认不会重试，除非策略显式设置 `retryNonIdempotent: true`。
    */
-  post<T, TData = unknown>(config: MethodRequestConfig<TData>): Promise<T>;
-  post<T, TData = unknown>(url: string, data?: TData, config?: UrlRequestConfig<TData>): Promise<T>;
+  post<T, TData = unknown>(config: MethodRequestOptions<TData>): Promise<T>;
   post<T, TData = unknown>(
-    urlOrConfig: string | MethodRequestConfig<TData>,
+    url: string,
     data?: TData,
-    config?: UrlRequestConfig<TData>,
+    config?: UrlRequestOptions<TData>,
+  ): Promise<T>;
+  post<T, TData = unknown>(
+    urlOrConfig: string | MethodRequestOptions<TData>,
+    data?: TData,
+    config?: UrlRequestOptions<TData>,
   ): Promise<T> {
     return this.request<T, TData>(normalizeDataMethodRequest("POST", urlOrConfig, data, config));
   }
@@ -360,12 +364,12 @@ export class RequestClient {
    * @param config - 其他单次请求配置。
    * @returns 响应数据。
    */
-  put<T, TData = unknown>(config: MethodRequestConfig<TData>): Promise<T>;
-  put<T, TData = unknown>(url: string, data?: TData, config?: UrlRequestConfig<TData>): Promise<T>;
+  put<T, TData = unknown>(config: MethodRequestOptions<TData>): Promise<T>;
+  put<T, TData = unknown>(url: string, data?: TData, config?: UrlRequestOptions<TData>): Promise<T>;
   put<T, TData = unknown>(
-    urlOrConfig: string | MethodRequestConfig<TData>,
+    urlOrConfig: string | MethodRequestOptions<TData>,
     data?: TData,
-    config?: UrlRequestConfig<TData>,
+    config?: UrlRequestOptions<TData>,
   ): Promise<T> {
     return this.request<T, TData>(normalizeDataMethodRequest("PUT", urlOrConfig, data, config));
   }
@@ -381,21 +385,21 @@ export class RequestClient {
    * @returns 响应数据。
    * @remarks PATCH 默认不会重试，除非策略显式设置 `retryNonIdempotent: true`。
    */
-  patch<T, TData = unknown>(config: MethodRequestConfig<TData>): Promise<T>;
+  patch<T, TData = unknown>(config: MethodRequestOptions<TData>): Promise<T>;
   patch<T, TData = unknown>(
     url: string,
     data?: TData,
-    config?: UrlRequestConfig<TData>,
+    config?: UrlRequestOptions<TData>,
   ): Promise<T>;
   patch<T, TData = unknown>(
-    urlOrConfig: string | MethodRequestConfig<TData>,
+    urlOrConfig: string | MethodRequestOptions<TData>,
     data?: TData,
-    config?: UrlRequestConfig<TData>,
+    config?: UrlRequestOptions<TData>,
   ): Promise<T> {
     return this.request<T, TData>(normalizeDataMethodRequest("PATCH", urlOrConfig, data, config));
   }
 
-  #applyDefaults<TBody>(config: RequestConfig<TBody>): RequestConfig {
+  #applyDefaults<TBody>(config: RequestOptions<TBody>): RequestOptions {
     const baseURL = config.baseURL ?? this.#defaults.baseURL;
     const timeout = config.timeout ?? this.#defaults.timeout;
     const retry = config.retry ?? this.#defaults.retry;
@@ -416,7 +420,7 @@ export class RequestClient {
     };
   }
 
-  async #resolveRequest(config: RequestConfig): Promise<HttpResponse | undefined> {
+  async #resolveRequest(config: RequestOptions): Promise<HttpResponse | undefined> {
     for (const resolver of this.#requestResolvers) {
       const response = await resolver(config);
       if (response !== undefined) return response;
@@ -424,7 +428,7 @@ export class RequestClient {
     return undefined;
   }
 
-  #runRequestMiddlewares(config: RequestConfig, handler: RequestHandler): Promise<HttpResponse> {
+  #runRequestMiddlewares(config: RequestOptions, handler: RequestHandler): Promise<HttpResponse> {
     const middlewares = [...this.#requestMiddlewares];
     const dispatch = (index: number): Promise<HttpResponse> => {
       const middleware = middlewares[index];
@@ -440,19 +444,19 @@ function normalizeMethod(method?: HttpMethod): HttpMethod {
 
 function normalizeUrlMethodRequest<TBody>(
   method: HttpMethod,
-  urlOrConfig: string | MethodRequestConfig<TBody>,
-  config?: UrlRequestConfig<TBody>,
-): RequestConfig<TBody> {
+  urlOrConfig: string | MethodRequestOptions<TBody>,
+  config?: UrlRequestOptions<TBody>,
+): RequestOptions<TBody> {
   if (typeof urlOrConfig !== "string") return { ...urlOrConfig, method };
   return { ...config, url: urlOrConfig, method };
 }
 
 function normalizeDataMethodRequest<TBody>(
   method: HttpMethod,
-  urlOrConfig: string | MethodRequestConfig<TBody>,
+  urlOrConfig: string | MethodRequestOptions<TBody>,
   data?: TBody,
-  config?: UrlRequestConfig<TBody>,
-): RequestConfig<TBody> {
+  config?: UrlRequestOptions<TBody>,
+): RequestOptions<TBody> {
   if (typeof urlOrConfig !== "string") return { ...urlOrConfig, method };
   return { ...config, url: urlOrConfig, method, data };
 }

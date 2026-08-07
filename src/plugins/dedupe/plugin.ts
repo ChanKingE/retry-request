@@ -1,5 +1,5 @@
 import { getAbortReason, resolveURL } from "@/helpers.ts";
-import type { HttpResponse, RequestConfig } from "@/types.ts";
+import type { HttpResponse, RequestOptions } from "@/types.ts";
 import type { DedupeKeyGenerator, DedupePlugin, DedupePluginOptions } from "./types.ts";
 
 const DEFAULT_WINDOW_MS = 2_000;
@@ -87,7 +87,7 @@ function resolveDedupeOptions(
 }
 
 /** 为常见的结构化请求参数生成稳定去重键。 */
-export function createDefaultDedupeKey(config: RequestConfig): string | undefined {
+export function createDefaultDedupeKey(config: RequestOptions): string | undefined {
   try {
     const serialized = stableSerialize([
       config.method ?? "GET",
@@ -171,7 +171,7 @@ function stableSerialize(
 
 function reuseResponse(
   promise: Promise<HttpResponse>,
-  config: RequestConfig,
+  config: RequestOptions,
 ): Promise<HttpResponse> {
   const response = promise.then((value) => ({ ...value, config }));
   const { signal } = config;

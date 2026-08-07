@@ -1,5 +1,5 @@
 import { resolveURL } from "@/helpers.ts";
-import type { RequestConfig } from "@/types.ts";
+import type { RequestOptions } from "@/types.ts";
 import { findMockRoute } from "./matcher.ts";
 import type {
   InlineMockResponse,
@@ -9,7 +9,7 @@ import type {
   MockResponseFactory,
   MockRoute,
 } from "./types.ts";
-import { snapshotRequestConfig, waitForMockDelay } from "./utils.ts";
+import { snapshotRequestOptions, waitForMockDelay } from "./utils.ts";
 
 /**
  * 创建可短路真实网络请求的 Mock 插件。
@@ -59,7 +59,7 @@ export function createMockPlugin(options: MockPluginOptions): MockPlugin {
               );
         history.push({
           timestamp: Date.now(),
-          config: snapshotRequestConfig(config),
+          config: snapshotRequestOptions(config),
           matched: route !== undefined || inlineMock.type === "response",
           route,
         });
@@ -108,7 +108,7 @@ function getInlineMock(value: unknown): InlineMock {
 async function createMockResponse(
   route: MockRoute,
   options: MockPluginOptions,
-  config: RequestConfig,
+  config: RequestOptions,
 ) {
   await waitForMockDelay(route.delay ?? options.delay ?? 0, config.signal);
   const data =

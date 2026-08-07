@@ -4,13 +4,13 @@ import {
   createDedupePlugin,
   type HttpAdapter,
   type HttpResponse,
-  type RequestConfig,
+  type RequestOptions,
 } from "../src/index.ts";
 
 class CountingAdapter implements HttpAdapter {
-  readonly calls: RequestConfig[] = [];
+  readonly calls: RequestOptions[] = [];
 
-  async request<T>(config: RequestConfig): Promise<HttpResponse<T>> {
+  async request<T>(config: RequestOptions): Promise<HttpResponse<T>> {
     this.calls.push(config);
     return {
       data: { call: this.calls.length } as T,
@@ -171,7 +171,7 @@ describe("createDedupePlugin", () => {
   test("lets a duplicate caller stop waiting without aborting the shared request", async () => {
     let resolveRequest: ((response: HttpResponse) => void) | undefined;
     const adapter: HttpAdapter = {
-      request<T>(_config: RequestConfig): Promise<HttpResponse<T>> {
+      request<T>(_config: RequestOptions): Promise<HttpResponse<T>> {
         return new Promise((resolve) => {
           resolveRequest = (response) => resolve(response as HttpResponse<T>);
         });

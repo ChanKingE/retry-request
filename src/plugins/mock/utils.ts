@@ -1,4 +1,4 @@
-import type { RequestConfig } from "@/types.ts";
+import type { RequestOptions } from "@/types.ts";
 
 /**
  * 创建适合写入 Mock 历史的浅层请求快照。
@@ -6,7 +6,7 @@ import type { RequestConfig } from "@/types.ts";
  * @param config - 当前请求配置。
  * @returns 复制 headers 和 meta 后的请求配置，避免调用方后续修改污染历史记录。
  */
-export function snapshotRequestConfig(config: RequestConfig): RequestConfig {
+export function snapshotRequestOptions(config: RequestOptions): RequestOptions {
   return {
     ...config,
     headers: { ...config.headers },

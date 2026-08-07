@@ -149,13 +149,13 @@ await client.get("/users", undefined, {
 
 ## 扩展请求配置
 
-业务项目需要给 `RequestConfig` 增加字段时，扩展 `RequestConfigExtensions` 即可。扩展后的字段会
+业务项目需要给 `RequestOptions` 增加字段时，扩展 `RequestOptionsExtensions` 即可。扩展后的字段会
 出现在 `request`、`get`、`post` 等单次请求配置、请求拦截器、插件和适配器接收到的最终
 `config` 中。
 
 ```ts
 declare module "@chan98/request" {
-  interface RequestConfigExtensions {
+  interface RequestOptionsExtensions {
     withToken?: boolean;
   }
 }

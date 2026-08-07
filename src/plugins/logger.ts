@@ -1,4 +1,4 @@
-import type { HttpResponse, RequestConfig, RequestPlugin } from "@/types.ts";
+import type { HttpResponse, RequestOptions, RequestPlugin } from "@/types.ts";
 
 /** 日志插件配置。 */
 export interface LoggerPluginOptions {
@@ -12,7 +12,7 @@ export interface LoggerPluginOptions {
 }
 
 declare module "@/types.ts" {
-  interface RequestConfigExtensions {
+  interface RequestOptionsExtensions {
     /** 单次请求的日志配置；优先级高于 `meta.logger`。 */
     logger?: LoggerPluginOptions;
   }
@@ -64,7 +64,7 @@ export function createLoggerPlugin(options: LoggerPluginOptions = {}): RequestPl
 }
 
 function resolveLogger(
-  config: RequestConfig | undefined,
+  config: RequestOptions | undefined,
   defaultLogger: Pick<Console, "debug" | "error">,
 ): Pick<Console, "debug" | "error"> {
   const requestLogger = config?.logger ?? config?.meta?.logger;
@@ -76,14 +76,14 @@ function resolveLogger(
 function getErrorConfig(
   error: unknown,
   latestResponse: HttpResponse | undefined,
-): RequestConfig | undefined {
+): RequestOptions | undefined {
   if (latestResponse) return latestResponse.config;
   if (isRecord(error)) {
     const response = error.response;
     if (isRecord(response) && isRecord(response.config)) {
-      return response.config as unknown as RequestConfig;
+      return response.config as unknown as RequestOptions;
     }
-    if (isRecord(error.config)) return error.config as unknown as RequestConfig;
+    if (isRecord(error.config)) return error.config as unknown as RequestOptions;
   }
   return undefined;
 }

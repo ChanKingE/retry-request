@@ -4,11 +4,11 @@ import {
   createLoggerPlugin,
   type HttpAdapter,
   type HttpResponse,
-  type RequestConfig,
+  type RequestOptions,
 } from "../src/index.ts";
 
 class StaticAdapter implements HttpAdapter {
-  async request<T>(config: RequestConfig): Promise<HttpResponse<T>> {
+  async request<T>(config: RequestOptions): Promise<HttpResponse<T>> {
     return {
       data: { ok: true } as T,
       status: 200,

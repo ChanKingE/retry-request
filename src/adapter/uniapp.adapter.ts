@@ -1,6 +1,6 @@
 import { HttpError, NetworkError, TimeoutError } from "@/error.ts";
 import { getAbortReason } from "@/helpers.ts";
-import type { HttpAdapter, HttpResponse, RequestConfig } from "@/types.ts";
+import type { HttpAdapter, HttpResponse, RequestOptions } from "@/types.ts";
 
 /** UniApp `uni.request` 支持的请求体数据。 */
 export type UniRequestData = string | Record<string, unknown> | ArrayBuffer;
@@ -184,7 +184,7 @@ export class UniAppAdapter implements HttpAdapter {
    * @throws {@link NetworkError} `uni.request` 不可用或进入失败回调。
    * @throws AbortError 外部 AbortSignal 主动取消请求。
    */
-  request<T>(config: RequestConfig): Promise<HttpResponse<T>> {
+  request<T>(config: RequestOptions): Promise<HttpResponse<T>> {
     const request = (this.#request ?? resolveGlobalRequest()) as UniRequest;
     if (!request) {
       return Promise.reject(new NetworkError("uni.request is not available", { config }));

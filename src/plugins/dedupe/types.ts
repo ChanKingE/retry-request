@@ -1,10 +1,10 @@
-import type { RequestConfig, RequestPlugin } from "@/types.ts";
+import type { RequestOptions, RequestPlugin } from "@/types.ts";
 
 /** 根据最终请求配置生成去重键；返回 undefined 可跳过当前请求。 */
-export type DedupeKeyGenerator = (config: RequestConfig) => string | undefined;
+export type DedupeKeyGenerator = (config: RequestOptions) => string | undefined;
 
 declare module "@/types.ts" {
-  interface RequestConfigExtensions {
+  interface RequestOptionsExtensions {
     /** 单次请求的去重配置；优先级高于 `meta.dedupe`。 */
     dedupe?: DedupePluginOptions;
   }

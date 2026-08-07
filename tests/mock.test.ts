@@ -4,13 +4,13 @@ import {
   createMockPlugin,
   type HttpAdapter,
   type HttpResponse,
-  type RequestConfig,
+  type RequestOptions,
 } from "../src/index.ts";
 
 class RecordingAdapter implements HttpAdapter {
-  readonly calls: RequestConfig[] = [];
+  readonly calls: RequestOptions[] = [];
 
-  async request<T>(config: RequestConfig): Promise<HttpResponse<T>> {
+  async request<T>(config: RequestOptions): Promise<HttpResponse<T>> {
     this.calls.push(config);
     return {
       data: { source: "network" } as T,
@@ -149,7 +149,7 @@ describe("createMockPlugin", () => {
       client.get("/users", {
         params: { page: 1 },
         meta: {
-          mock: (config: RequestConfig) => ({
+          mock: (config: RequestOptions) => ({
             url: config.url,
             params: config.params,
           }),

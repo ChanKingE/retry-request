@@ -1,6 +1,6 @@
 import { HttpError, NetworkError, TimeoutError } from "@/error.ts";
 import { getAbortReason } from "@/helpers.ts";
-import type { HttpAdapter, HttpMethod, HttpResponse, RequestConfig } from "@/types.ts";
+import type { HttpAdapter, HttpMethod, HttpResponse, RequestOptions } from "@/types.ts";
 
 /** AxiosAdapter 传给 Axios 实例的最小请求配置。 */
 export interface AxiosRequestConfigLike {
@@ -53,7 +53,7 @@ export interface AxiosAdapterOptions {
   /**
    * 透传给每次 Axios 请求的额外配置。
    *
-   * @remarks URL、方法、参数、请求体、请求头、超时、凭证和 signal 会被单次 RequestConfig 覆盖。
+   * @remarks URL、方法、参数、请求体、请求头、超时、凭证和 signal 会被单次 RequestOptions 覆盖。
    */
   [key: string]: unknown;
 }
@@ -97,7 +97,7 @@ export class AxiosAdapter implements HttpAdapter {
    * @throws {@link NetworkError} 请求未获得 HTTP 响应或 Axios 同步执行失败。
    * @throws AbortError 请求被 AbortSignal 或 Axios 取消。
    */
-  async request<T>(config: RequestConfig): Promise<HttpResponse<T>> {
+  async request<T>(config: RequestOptions): Promise<HttpResponse<T>> {
     if (config.signal?.aborted) throw getAbortReason(config.signal);
     try {
       const response = await this.instance.request<T>({
@@ -127,7 +127,7 @@ export class AxiosAdapter implements HttpAdapter {
   }
 }
 
-function normalizeAxiosError(error: unknown, config: RequestConfig): Error {
+function normalizeAxiosError(error: unknown, config: RequestOptions): Error {
   if (
     error instanceof HttpError ||
     error instanceof TimeoutError ||
@@ -164,7 +164,7 @@ function normalizeAxiosError(error: unknown, config: RequestConfig): Error {
 
 function normalizeResponse<T>(
   response: AxiosResponseLike<T>,
-  config: RequestConfig,
+  config: RequestOptions,
 ): HttpResponse<T> {
   return {
     data: response.data,

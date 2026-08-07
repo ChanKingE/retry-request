@@ -1,4 +1,4 @@
-import type { HttpResponse, RequestConfig } from "@/types.ts";
+import type { HttpResponse, RequestOptions } from "@/types.ts";
 
 /**
  * 表示请求未获得可用 HTTP 响应的传输层错误。
@@ -7,7 +7,7 @@ import type { HttpResponse, RequestConfig } from "@/types.ts";
  */
 export class NetworkError extends Error {
   /** 触发错误的最终请求配置，未知时为空。 */
-  readonly config?: RequestConfig;
+  readonly config?: RequestOptions;
 
   /**
    * 创建网络错误。
@@ -17,7 +17,7 @@ export class NetworkError extends Error {
    */
   constructor(
     message = "Network error",
-    options: { cause?: unknown; config?: RequestConfig } = {},
+    options: { cause?: unknown; config?: RequestOptions } = {},
   ) {
     super(message, { cause: options.cause });
     this.name = "NetworkError";
@@ -25,10 +25,10 @@ export class NetworkError extends Error {
   }
 }
 
-/** 表示请求执行时间超过 `RequestConfig.timeout` 的错误。 */
+/** 表示请求执行时间超过 `RequestOptions.timeout` 的错误。 */
 export class TimeoutError extends Error {
   /** 触发超时的最终请求配置，未知时为空。 */
-  readonly config?: RequestConfig;
+  readonly config?: RequestOptions;
 
   /**
    * 创建超时错误。
@@ -38,7 +38,7 @@ export class TimeoutError extends Error {
    */
   constructor(
     message = "Request timeout",
-    options: { cause?: unknown; config?: RequestConfig } = {},
+    options: { cause?: unknown; config?: RequestOptions } = {},
   ) {
     super(message, { cause: options.cause });
     this.name = "TimeoutError";
@@ -137,7 +137,7 @@ export function isAbortError(error: unknown): error is Error {
  * @param config - 与错误关联的最终请求配置。
  * @returns 已标准化的错误；标准错误和 AbortError 会原样返回。
  */
-export function normalizeRequestError(error: unknown, config?: RequestConfig): Error {
+export function normalizeRequestError(error: unknown, config?: RequestOptions): Error {
   if (isRequestError(error) || isAbortError(error)) return error;
 
   if (isRecord(error)) {

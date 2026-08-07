@@ -15,7 +15,7 @@ import {
   type AxiosInstanceLike,
   type AxiosRequestConfigLike,
   type HttpAdapter,
-  type RequestConfig,
+  type RequestOptions,
   type UniRequest,
 } from "../src/index.ts";
 
@@ -310,7 +310,7 @@ async function demonstrateErrors(client: ReturnType<typeof createHttpClient>): P
   await reportExpectedError("HTTP 错误", client.get("/http-error"));
 
   const fallbackAdapter: HttpAdapter = {
-    async request<T>(config: RequestConfig) {
+    async request<T>(config: RequestOptions) {
       return {
         data: { source: "real-adapter", url: config.url } as T,
         status: 200,
@@ -325,7 +325,7 @@ async function demonstrateErrors(client: ReturnType<typeof createHttpClient>): P
   console.log("Mock 未匹配，执行适配器：", await fallbackClient.get("/not-mocked"));
 
   const networkAdapter: HttpAdapter = {
-    async request(config: RequestConfig) {
+    async request(config: RequestOptions) {
       throw new NetworkError("演示网络不可用", { config });
     },
   };
@@ -333,7 +333,7 @@ async function demonstrateErrors(client: ReturnType<typeof createHttpClient>): P
   await reportExpectedError("网络错误", networkClient.get("/network-error"));
 
   const timeoutAdapter: HttpAdapter = {
-    async request(config: RequestConfig) {
+    async request(config: RequestOptions) {
       throw new TimeoutError("演示请求超时", { config });
     },
   };

@@ -1,4 +1,4 @@
-import type { HttpMethod, RequestConfig } from "@/types.ts";
+import type { HttpMethod, RequestOptions } from "@/types.ts";
 import type { MockRoute, MockUrlMatcher } from "./types.ts";
 
 /**
@@ -14,7 +14,7 @@ export async function findMockRoute(
   routes: readonly MockRoute[],
   consumedRoutes: ReadonlySet<MockRoute>,
   url: string,
-  config: RequestConfig,
+  config: RequestOptions,
 ): Promise<MockRoute | undefined> {
   for (const route of routes) {
     if (consumedRoutes.has(route) || !matchesMethod(route, config.method ?? "GET")) continue;
@@ -31,7 +31,7 @@ function matchesMethod(route: MockRoute, method: HttpMethod): boolean {
 async function matchesUrl(
   matcher: MockUrlMatcher,
   url: string,
-  config: RequestConfig,
+  config: RequestOptions,
 ): Promise<boolean> {
   if (typeof matcher === "string") return matcher === url;
   if (typeof matcher === "function") return matcher(url, config);

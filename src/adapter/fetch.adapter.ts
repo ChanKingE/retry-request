@@ -1,5 +1,5 @@
 import { HttpError, TimeoutError, isAbortError } from "@/error.ts";
-import type { HttpAdapter, HttpResponse, RequestConfig } from "@/types.ts";
+import type { HttpAdapter, HttpResponse, RequestOptions } from "@/types.ts";
 
 /**
  * 使用浏览器或 Node.js 原生 `fetch` 完成请求的默认适配器。
@@ -28,7 +28,7 @@ export class FetchAdapter implements HttpAdapter {
    * @throws {@link TimeoutError} 内部超时控制器取消请求。
    * @throws AbortError 外部 AbortSignal 主动取消请求。
    */
-  async request<T>(config: RequestConfig): Promise<HttpResponse<T>> {
+  async request<T>(config: RequestOptions): Promise<HttpResponse<T>> {
     const controller = new AbortController();
     const timeout = config.timeout;
     let timedOut = false;

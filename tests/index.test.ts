@@ -12,27 +12,27 @@ import {
   createResponseEnvelopeInterceptor,
   type HttpAdapter,
   type HttpResponse,
-  type RequestConfig,
+  type RequestOptions,
   type RequestPlugin,
 } from "../src/index.ts";
 
 declare module "../src/types.ts" {
-  interface RequestConfigExtensions {
+  interface RequestOptionsExtensions {
     withToken?: boolean;
   }
 }
 
-type AdapterStep = (config: RequestConfig) => Promise<HttpResponse>;
+type AdapterStep = (config: RequestOptions) => Promise<HttpResponse>;
 
 class ScriptedAdapter implements HttpAdapter {
-  readonly calls: RequestConfig[] = [];
+  readonly calls: RequestOptions[] = [];
   readonly #steps: AdapterStep[];
 
   constructor(...steps: AdapterStep[]) {
     this.#steps = steps;
   }
 
-  async request<T>(config: RequestConfig): Promise<HttpResponse<T>> {
+  async request<T>(config: RequestOptions): Promise<HttpResponse<T>> {
     this.calls.push(config);
     const step = this.#steps.shift();
     if (!step) throw new Error("No adapter response configured");
@@ -79,15 +79,17 @@ describe("RequestClient", () => {
     await client.put("/put-payload-config", { id: 1 }, { params: { expand: "user" } });
     await client.patch("/patch-payload-config", { id: 2 }, { retry: 0 });
 
-    expect(adapter.calls.map(({ url, method, params, data, baseURL, headers, retry }) => ({
-      url,
-      method,
-      params,
-      data,
-      baseURL,
-      headers,
-      retry,
-    }))).toEqual([
+    expect(
+      adapter.calls.map(({ url, method, params, data, baseURL, headers, retry }) => ({
+        url,
+        method,
+        params,
+        data,
+        baseURL,
+        headers,
+        retry,
+      })),
+    ).toEqual([
       {
         url: "/get-config",
         method: "GET",
@@ -192,16 +194,17 @@ describe("RequestClient", () => {
     await client.put({ url: "/put", data: { id: 1 } });
     await client.patch({ url: "/patch", data: { id: 2 } });
 
-    expect(adapter.calls.map(({ url, method, params, data }) => ({ url, method, params, data })))
-      .toEqual([
-        { url: "/get", method: "GET", params: { page: 1 }, data: undefined },
-        { url: "/delete", method: "DELETE", params: { force: true }, data: undefined },
-        { url: "/head", method: "HEAD", params: undefined, data: undefined },
-        { url: "/options", method: "OPTIONS", params: undefined, data: undefined },
-        { url: "/post", method: "POST", params: undefined, data: { name: "Ada" } },
-        { url: "/put", method: "PUT", params: undefined, data: { id: 1 } },
-        { url: "/patch", method: "PATCH", params: undefined, data: { id: 2 } },
-      ]);
+    expect(
+      adapter.calls.map(({ url, method, params, data }) => ({ url, method, params, data })),
+    ).toEqual([
+      { url: "/get", method: "GET", params: { page: 1 }, data: undefined },
+      { url: "/delete", method: "DELETE", params: { force: true }, data: undefined },
+      { url: "/head", method: "HEAD", params: undefined, data: undefined },
+      { url: "/options", method: "OPTIONS", params: undefined, data: undefined },
+      { url: "/post", method: "POST", params: undefined, data: { name: "Ada" } },
+      { url: "/put", method: "PUT", params: undefined, data: { id: 1 } },
+      { url: "/patch", method: "PATCH", params: undefined, data: { id: 2 } },
+    ]);
   });
 
   test("applies defaults and runs ejectable interceptors in registration order", async () => {
@@ -241,7 +244,7 @@ describe("RequestClient", () => {
   test("uses a function request interceptor as fulfilled", async () => {
     const adapter = new ScriptedAdapter(async (config) => response({ ok: true }, config));
     const client = new RequestClient(adapter);
-    const addHeader = (config: RequestConfig) => ({
+    const addHeader = (config: RequestOptions) => ({
       ...config,
       headers: { ...config.headers, "x-function": "1" },
     });
@@ -364,11 +367,9 @@ describe("RequestClient", () => {
     );
     const client = new RequestClient(adapter);
 
-    await expect(client.get("/retry", { retry: { max: 1, delay: 0 } })).resolves.toEqual(
-      {
-        ok: true,
-      },
-    );
+    await expect(client.get("/retry", { retry: { max: 1, delay: 0 } })).resolves.toEqual({
+      ok: true,
+    });
     expect(adapter.calls).toHaveLength(2);
   });
 
@@ -395,9 +396,9 @@ describe("RequestClient", () => {
     );
     const requestClient = new RequestClient(requestAdapter, { retry: 2 });
 
-    await expect(
-      requestClient.get("/request-retry", { retry: 0 }),
-    ).rejects.toBeInstanceOf(TimeoutError);
+    await expect(requestClient.get("/request-retry", { retry: 0 })).rejects.toBeInstanceOf(
+      TimeoutError,
+    );
     expect(requestAdapter.calls).toHaveLength(1);
     expect(requestAdapter.calls[0]?.retry).toBe(0);
   });
@@ -609,7 +610,9 @@ describe("InterceptorManager", () => {
       },
     );
 
-    await expect(manager.run(Promise.reject(new Error("request failed")))).resolves.toEqual({ count: 1 });
+    await expect(manager.run(Promise.reject(new Error("request failed")))).resolves.toEqual({
+      count: 1,
+    });
     remove();
     await expect(manager.run({ count: 0 })).resolves.toEqual({ count: 0 });
   });
@@ -685,7 +688,7 @@ describe("FetchAdapter", () => {
   });
 });
 
-function response<T>(data: T, config: RequestConfig): HttpResponse<T> {
+function response<T>(data: T, config: RequestOptions): HttpResponse<T> {
   return {
     data,
     status: 200,

@@ -12,13 +12,13 @@ interface ClientMeta {
  *
  * ```ts
  * declare module "@chan98/request" {
- *   interface RequestConfigExtensions {
+ *   interface RequestOptionsExtensions {
  *     withToken?: boolean;
  *   }
  * }
  * ```
  */
-export interface RequestConfigExtensions {}
+export interface RequestOptionsExtensions {}
 
 /**
  * 客户端支持的 HTTP 请求方法。
@@ -94,54 +94,63 @@ export interface RetryPolicy {
 }
 
 /**
+ * 客户端默认配置与单次请求配置共用的字段。
+ *
+ * @remarks 客户端配置作为全局默认值，单次请求可覆盖其中任意字段。
+ */
+export interface CommonOptions {
+  /**
+   * 所有请求默认使用的基地址，仅用于相对 URL。
+   *
+   * @remarks
+   * 单次请求可通过 {@link RequestOptions.baseURL} 覆盖该值；传入空字符串可为本次请求
+   * 关闭客户端的全局基地址。绝对 URL 和以 `//` 开头的协议相对 URL 不会拼接任何基地址。
+   */
+  baseURL?: string;
+  /** 默认超时时间，单位为毫秒；单次请求可覆盖客户端默认值。 */
+  timeout?: number;
+  /**
+   * 默认使用的重试次数或完整策略。
+   *
+   * @remarks
+   * 数字写法等价于 `{ max: value }`。单次请求可通过 {@link RequestOptions.retry} 整体覆盖
+   * 客户端策略，请求级策略不会按字段合并；传入 `0` 可关闭本次请求的全局重试。
+   */
+  retry?: number | RetryPolicy;
+  /** 是否默认跨域携带 Cookie，由当前适配器映射到底层请求 API。@defaultValue `false` */
+  withCredentials?: boolean;
+  /** 每次请求都会合并的默认请求头；同名字段覆盖客户端默认请求头。 */
+  headers?: Record<string, string>;
+  /**
+   * 提供给所有请求、拦截器和插件的上下文。
+   *
+   * @remarks 单次请求的 meta 与客户端全局 meta 浅合并，并覆盖全局上下文中的同名键。
+   */
+  meta?: ClientMeta;
+}
+
+/**
  * 单次请求的完整配置。
  *
  * @typeParam TBody - 查询参数类型，具体可用结构由当前适配器决定。
  * @typeParam TData - 请求体类型。
  */
-export interface RequestConfig<TBody = Record<string, unknown>> extends RequestConfigExtensions {
+export interface RequestOptions<TBody = Record<string, unknown>>
+  extends CommonOptions, RequestOptionsExtensions {
   /** 请求地址。相对地址会与客户端的 `baseURL` 拼接。 */
   url: string;
-  /**
-   * 本次请求使用的基地址，仅用于相对 URL。
-   *
-   * @remarks
-   * 优先级高于 {@link ClientOptions["baseURL"]}。传入空字符串可为本次请求关闭客户端的
-   * 全局基地址；绝对 URL 和以 `//` 开头的协议相对 URL 不会拼接任何基地址。
-   */
-  baseURL?: string;
   /** HTTP 方法。@defaultValue `GET` */
   method?: HttpMethod;
   /** 查询参数；`undefined` 和 `null` 字段不会进入最终 URL。 */
   params?: Partial<TBody>;
   /** 请求体；普通对象由 FetchAdapter 自动序列化为 JSON。 */
   data?: Partial<TBody>;
-  /** 单次请求头，同名字段覆盖客户端默认请求头。 */
-  headers?: Record<string, string>;
-  /** 超时时间，单位为毫秒；覆盖客户端默认值。 */
-  timeout?: number;
-  /**
-   * 本次请求使用的重试次数或完整策略。
-   *
-   * @remarks
-   * 数字写法等价于 `{ max: value }`，优先级高于 {@link ClientOptions['retry']}。
-   * 请求级策略会整体覆盖客户端策略，不会按字段合并；传入 `0` 可关闭本次请求的全局重试。
-   */
-  retry?: number | RetryPolicy;
-  /** 是否跨域携带 Cookie，由当前适配器映射到底层请求 API。 */
-  withCredentials?: boolean;
   /**
    * 用于主动取消请求的信号。
    *
    * @remarks 信号同时传给适配器并用于中断重试等待。
    */
   signal?: AbortSignal;
-  /**
-   * 供拦截器和插件读写的单次请求上下文。
-   *
-   * @remarks 与客户端全局 meta 浅合并，并覆盖全局上下文中的同名键。
-   */
-  meta?: ClientMeta;
 }
 
 /**
@@ -160,7 +169,7 @@ export interface HttpResponse<T = unknown> {
   /** 标准化为字符串键值的响应头。 */
   headers: Record<string, string>;
   /** 实际发送给适配器的最终请求配置。 */
-  config: RequestConfig;
+  config: RequestOptions;
 }
 
 /**
@@ -175,7 +184,7 @@ export interface HttpAdapter {
    * @returns 包含响应体、状态、响应头及原配置的标准响应。
    * @throws 适配器可抛出原生错误，RequestClient 会在外层统一标准化。
    */
-  request<T>(config: RequestConfig): Promise<HttpResponse<T>>;
+  request<T>(config: RequestOptions): Promise<HttpResponse<T>>;
   /**
    * 可选的按请求标识取消能力。
    *
@@ -224,7 +233,7 @@ export type InterceptorInput<T, E = unknown> = Interceptor<T, E> | InterceptorFu
  * @remarks Mock 等需要短路真实网络请求的插件可使用该扩展点。
  */
 export type RequestResolver = (
-  config: RequestConfig,
+  config: RequestOptions,
 ) => HttpResponse | undefined | Promise<HttpResponse | undefined>;
 
 /** 执行当前请求链中的下一个中间件，最终进入请求解析器或底层适配器。 */
@@ -238,38 +247,12 @@ export type RequestHandler = () => Promise<HttpResponse>;
  * @returns 标准响应；可以直接返回缓存中的 Promise 来合并重复请求。
  */
 export type RequestMiddleware = (
-  config: RequestConfig,
+  config: RequestOptions,
   next: RequestHandler,
 ) => Promise<HttpResponse>;
 
-/** 创建客户端时使用的全局配置。 */
-export interface ClientOptions {
-  /**
-   * 所有请求默认使用的基地址，仅用于相对 URL。
-   *
-   * @remarks 单次请求可通过 {@link RequestConfig.baseURL} 覆盖该值。
-   */
-  baseURL?: string;
-  /** 默认超时时间，单位为毫秒。工厂函数中的默认值为 `10000`。 */
-  timeout?: number;
-  /**
-   * 所有请求默认使用的重试次数或完整策略。
-   *
-   * @remarks
-   * 单次请求可通过 {@link RequestConfig.retry} 整体覆盖该值；请求未提供 `retry` 时才会继承
-   * 此配置。数字写法等价于 `{ max: value }`。
-   */
-  retry?: number | RetryPolicy;
-  /** 是否默认跨域携带 Cookie。@defaultValue `false` */
-  withCredentials?: boolean;
-  /** 每次请求都会合并的默认请求头。 */
-  headers?: Record<string, string>;
-  /**
-   * 提供给所有请求、拦截器和插件的全局上下文。
-   *
-   * @remarks 单次请求的 meta 会浅合并到该对象，并覆盖同名键。
-   */
-  meta?: ClientMeta;
+/** 创建客户端时使用的全局配置，包含 {@link CommonOptions} 中的共享字段。 */
+export interface ClientOptions extends CommonOptions {
   /** 自定义适配器。@defaultValue {@link FetchAdapter} */
   adapter?: HttpAdapter;
   /**
@@ -318,8 +301,8 @@ export interface RequestClientLike {
    * @returns 对应拦截器的卸载函数。
    */
   useRequestInterceptor<T extends Record<string, unknown>>(
-    interceptor: InterceptorInput<RequestConfig<T>>,
-    rejected?: InterceptorRejected<RequestConfig<T>>,
+    interceptor: InterceptorInput<RequestOptions<T>>,
+    rejected?: InterceptorRejected<RequestOptions<T>>,
   ): () => void;
   /**
    * 注册响应拦截器。
