@@ -96,7 +96,7 @@ export class BusinessError extends Error {
   constructor(message: string, code: string, details?: unknown, options?: { cause?: unknown }) {
     super(message, options);
     this.name = "BusinessError";
-    this.code = code;
+    this.code = String(code);
     this.details = details;
   }
 }
