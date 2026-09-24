@@ -150,9 +150,12 @@ export class RequestClient {
     if (existingCleanup) return existingCleanup;
 
     const teardown = plugin.setup(this) ?? (() => undefined);
+    let active = true;
     const cleanup = () => {
-      teardown();
+      if (!active) return;
+      active = false;
       this.#pluginCleanups.delete(plugin);
+      teardown();
     };
     this.#pluginCleanups.set(plugin, cleanup);
     return cleanup;
@@ -404,11 +407,11 @@ export class RequestClient {
 
   #applyDefaults<TBody>(config: RequestOptions<TBody>): InterceptorRequestOptions {
     return {
-      params: {},
-      headers: {},
-      data: {},
       ...this.#defaults,
       ...config,
+      params: config.params ?? {},
+      data: config.data ?? {},
+      headers: mergeHeaders(this.#defaults.headers, config.headers),
       method: normalizeMethod(config.method),
     };
   }
@@ -433,6 +436,19 @@ export class RequestClient {
 
 function normalizeMethod(method?: HttpMethod): HttpMethod {
   return method ?? "GET";
+}
+
+function mergeHeaders(
+  defaults?: Record<string, string>,
+  overrides?: Record<string, string>,
+): Record<string, string> {
+  const headers = { ...defaults };
+  for (const [name, value] of Object.entries(overrides ?? {})) {
+    const existing = Object.keys(headers).find((key) => key.toLowerCase() === name.toLowerCase());
+    if (existing) delete headers[existing];
+    headers[name] = value;
+  }
+  return headers;
 }
 
 function normalizeUrlMethodRequest<TBody>(

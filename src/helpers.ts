@@ -1,11 +1,43 @@
+import { FetchAdapter } from "@/adapter/fetch.adapter.ts";
+import { RequestClient } from "@/client.ts";
 import { BusinessError } from "@/error.ts";
 import type {
+  ClientOptions,
   HttpResponse,
   Interceptor,
   RequestOptions,
   ResponseEnvelopeOptions,
 } from "@/types.ts";
-import type { RequestClient } from "@/client.ts";
+
+/**
+ * 创建请求客户端。
+ * 默认使用 FetchAdapter、10 秒超时；可按需启用业务响应解包。
+ *
+ * @param options - 客户端默认配置及自定义适配器。
+ * @param responseEnvelope - 默认 false；设为 true 使用标准字段映射，或传入自定义字段映射。
+ * @returns 按需安装业务响应解包拦截器的 RequestClient 实例。
+ *
+ * @example
+ * ```ts
+ * const client = createHttpClient({
+ *   baseURL: "https://api.example.com",
+ *   timeout: 5_000,
+ * });
+ * ```
+ */
+export function createHttpClient(
+  options: ClientOptions = {},
+  responseEnvelope: boolean | ResponseEnvelopeOptions = false,
+): RequestClient {
+  const { adapter = new FetchAdapter(), timeout = 10_000, ...clientOptions } = options;
+  const client = new RequestClient(adapter, { ...clientOptions, timeout });
+  if (responseEnvelope) {
+    client.useResponseInterceptor(
+      createResponseEnvelopeInterceptor(responseEnvelope === true ? undefined : responseEnvelope),
+    );
+  }
+  return client;
+}
 
 /**
  * 创建共享同一个 AbortController 的一次性请求执行器。
