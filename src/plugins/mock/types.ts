@@ -57,7 +57,7 @@ export type MockConfig = InlineMockResponse | MockRoute;
 
 declare module "@/types.ts" {
   interface RequestOptionsExtensions {
-    /** 单次请求的内联 Mock 响应或 Mock 路由；优先级高于 `meta.mock`。 */
+    /** 单次请求的内联 Mock 响应或 Mock 路由。 */
     mock?: MockConfig;
   }
 }

@@ -5,7 +5,7 @@ export interface LoggerPluginOptions {
   /**
    * 自定义日志实现，只要求提供 `debug` 和 `error`。
    *
-   * @remarks 可通过 `config.logger.logger` 为单次请求覆盖；兼容旧的 `config.meta.logger.logger`。
+   * @remarks 可通过 `config.logger.logger` 为单次请求覆盖。
    * @defaultValue 全局 `console`
    */
   logger?: Pick<Console, "debug" | "error">;
@@ -13,7 +13,7 @@ export interface LoggerPluginOptions {
 
 declare module "@/types.ts" {
   interface RequestOptionsExtensions {
-    /** 单次请求的日志配置；优先级高于 `meta.logger`。 */
+    /** 单次请求的日志配置；优先级高于插件初始化参数。 */
     logger?: LoggerPluginOptions;
   }
 }
@@ -67,7 +67,7 @@ function resolveLogger(
   config: RequestOptions | undefined,
   defaultLogger: Pick<Console, "debug" | "error">,
 ): Pick<Console, "debug" | "error"> {
-  const requestLogger = config?.logger ?? config?.meta?.logger;
+  const requestLogger = config?.logger;
   if (!isRecord(requestLogger)) return defaultLogger;
   const logger = requestLogger.logger;
   return isLogger(logger) ? logger : defaultLogger;
