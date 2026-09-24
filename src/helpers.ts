@@ -99,17 +99,20 @@ export function createRequest(client: RequestClient): {
 export function createResponseEnvelopeInterceptor(
   options: ResponseEnvelopeOptions = {},
 ): Interceptor<HttpResponse> {
-  const successCode = String(options.successCode ?? 0);
   const codeKey = options.codeKey ?? "code";
   const dataKey = options.dataKey ?? "data";
   const messageKey = options.messageKey ?? "message";
+  const isCodeSuccess =
+    typeof options.successCode === "function"
+      ? options.successCode
+      : (code: string) => String(code) === String(options.successCode ?? 0);
 
   return {
     fulfilled(response) {
       // 没有业务 code 的普通响应不做任何转换。
       if (!isRecord(response.data) || !(codeKey in response.data)) return response;
       const code = String(response.data[codeKey]);
-      if (code !== successCode) {
+      if (!isCodeSuccess(code)) {
         const message = response.data[messageKey];
         throw new BusinessError(
           typeof message === "string" ? message : "Business error",

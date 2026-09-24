@@ -268,7 +268,7 @@ export interface ClientOptions extends CommonOptions {
 /** `{ code, data, message }` 业务响应结构的字段映射。 */
 export interface ResponseEnvelopeOptions {
   /** 判定业务成功的 code。比较时双方都会转换为字符串。@defaultValue `0` */
-  successCode?: string | number;
+  successCode?: string | number | ((code: string) => boolean);
   /** 业务状态码字段名。@defaultValue `code` */
   codeKey?: string;
   /** 成功数据及错误详情字段名。@defaultValue `data` */
