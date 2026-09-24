@@ -60,12 +60,12 @@ export class InterceptorManager<T = unknown, E = unknown> {
    * @returns 最后一个拦截器处理后的值。
    * @throws 链中未被后续 rejected 处理器恢复的错误。
    */
-  run(value: T | Promise<T>): Promise<T> {
+  async run(value: T | Promise<T>): Promise<T> {
     let latestValue: T | undefined;
-    let chain = Promise.resolve(value).then((resolvedValue) => {
+    let chain = (await Promise.resolve(value).then((resolvedValue) => {
       latestValue = resolvedValue as T;
       return resolvedValue;
-    }) as Promise<T>;
+    })) as Promise<T>;
 
     for (const interceptor of this.#interceptors) {
       const handlerRejected = async (error: E) => {
@@ -74,7 +74,7 @@ export class InterceptorManager<T = unknown, E = unknown> {
         latestValue = recoveredValue;
         return recoveredValue;
       };
-      chain = chain.then(async (currentValue) => {
+      chain = (await chain.then(async (currentValue) => {
         latestValue = currentValue;
         const fulfilled = typeof interceptor === "function" ? interceptor : interceptor.fulfilled;
         try {
@@ -85,7 +85,7 @@ export class InterceptorManager<T = unknown, E = unknown> {
           if (error instanceof Error === false) throw error;
           return handlerRejected(error as E);
         }
-      }, handlerRejected) as Promise<T>;
+      }, handlerRejected)) as Promise<T>;
     }
     return chain;
   }
