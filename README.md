@@ -13,7 +13,7 @@ HTTP 实现与业务调用，并统一处理超时、重试、取消和错误类
 - 幂等请求重试、固定或指数退避
 - 基于 `AbortController` 的请求取消
 - 可清理的插件生命周期，以及内置请求去重、日志、Mock 插件
-- 默认解包 `{ code, data, message }` 业务响应
+- 可选解包 `{ code, data, message }` 业务响应
 
 ## 快速开始
 
@@ -28,8 +28,8 @@ interface User {
 const user = await httpClient.get<User>("/api/users/1");
 ```
 
-默认客户端使用 `FetchAdapter`，超时时间为 10 秒。对于包含 `code` 字段的响应，`code === 0`
-时返回 `data`，否则抛出 `BusinessError`；不包含 `code` 的普通响应保持原样。
+默认客户端使用 `FetchAdapter`，超时时间为 10 秒，返回原始响应数据。若需要按业务 `code`
+解包，使用 `createHttpClient(options, true)`；业务错误会抛出 `BusinessError`。
 
 ## 创建客户端
 
@@ -44,51 +44,47 @@ const client = createHttpClient({
   headers: {
     "x-client-version": "1.0.0",
   },
-  meta: {
-    application: "admin",
-  },
 });
 ```
 
-| 配置               | 类型                               | 默认值         | 说明                   |
-| ------------------ | ---------------------------------- | -------------- | ---------------------- |
-| `baseURL`          | `string`                           | 无             | 相对 URL 的请求基地址  |
-| `timeout`          | `number`                           | `10000`        | 超时时间，单位为毫秒   |
-| `retry`            | `number \| RetryPolicy`            | 无             | 默认重试次数或策略     |
-| `withCredentials`  | `boolean`                          | `false`        | 是否跨域携带 Cookie    |
-| `headers`          | `Record<string, string>`           | `{}`           | 默认请求头             |
-| `meta`             | `Record<string, unknown>`          | 无             | 全局插件与拦截器上下文 |
-| `adapter`          | `HttpAdapter`                      | `FetchAdapter` | 自定义底层请求适配器   |
-| `responseEnvelope` | `false \| ResponseEnvelopeOptions` | 标准字段映射   | 业务响应解包配置       |
+| 配置              | 类型                     | 默认值         | 说明                  |
+| ----------------- | ------------------------ | -------------- | --------------------- |
+| `baseURL`         | `string`                 | 无             | 相对 URL 的请求基地址 |
+| `timeout`         | `number`                 | `10000`        | 超时时间，单位为毫秒  |
+| `retry`           | `number \| RetryPolicy`  | 无             | 默认重试次数或策略    |
+| `withCredentials` | `boolean`                | `false`        | 是否跨域携带 Cookie   |
+| `headers`         | `Record<string, string>` | `{}`           | 默认请求头            |
+| `adapter`         | `HttpAdapter`            | `FetchAdapter` | 自定义底层请求适配器  |
 
 单次请求也可以通过 `baseURL` 覆盖客户端的全局基地址；传入空字符串可仅为该请求关闭
 全局基地址。绝对 URL 不会与任何 `baseURL` 拼接。
 
 ```ts
-await client.get("/users", undefined, {
+await client.get("/users", {
   baseURL: "https://staging-api.example.com",
 });
 
-await client.get("/health", undefined, { baseURL: "" });
+await client.get("/health", { baseURL: "" });
 ```
 
-关闭自动业务响应解包：
+启用标准业务响应解包：
 
 ```ts
-const client = createHttpClient({ responseEnvelope: false });
+const client = createHttpClient({}, true);
 ```
 
 后端字段名不同时可自定义映射：
 
 ```ts
-const client = createHttpClient({
-  responseEnvelope: {
+const client = createHttpClient(
+  {},
+  {
     successCode: "SUCCESS",
     codeKey: "status",
     dataKey: "result",
     messageKey: "errorMessage",
   },
-});
+);
 ```
 
 ## 请求方法
@@ -96,8 +92,7 @@ const client = createHttpClient({
 ```ts
 // GET 查询参数会被追加到 URL；数组会生成同名的多个参数。
 const users = await client.get<User[], { page: number; role: string[] }>("/users", {
-  page: 1,
-  role: ["admin", "owner"],
+  params: { page: 1, role: ["admin", "owner"] },
 });
 
 const created = await client.post<User, CreateUserInput>("/users", {
@@ -118,34 +113,21 @@ await client.delete("/users/1", {
 需要完整控制时使用 `request`：
 
 ```ts
-const result = await client.request<Result, Query, Payload>({
+const result = await client.request<Result, Query & Payload>({
   url: "/jobs",
   method: "POST",
   params: { dryRun: true },
   data: { name: "daily-report" },
   headers: { "x-trace-id": traceId },
   timeout: 30_000,
-  meta: { source: "scheduler" },
 });
 ```
 
 普通对象请求体会自动序列化为 JSON 并设置 `content-type: application/json`。字符串、`Blob`、
 `FormData`、`URLSearchParams`、`ArrayBuffer` 和 TypedArray 会作为原生请求体传递。
 
-客户端全局 `meta` 会与单次请求的 `meta` 浅合并，同名键以单次请求为准：
-
-```ts
-const client = createHttpClient({
-  meta: { application: "admin", source: "global" },
-});
-
-await client.get("/users", undefined, {
-  meta: { requestId: "req-1", source: "page" },
-});
-
-// 最终 meta：
-// { application: "admin", requestId: "req-1", source: "page" }
-```
+请求拦截器收到的 `data`、`params` 和 `headers` 默认为独立的空对象。Fetch 与 Axios 适配器
+不会给 GET/HEAD 发送请求体；默认请求头与单次请求头按字段合并。
 
 ## 扩展请求配置
 
@@ -239,7 +221,7 @@ const client = createHttpClient({
 ```ts
 import { TimeoutError } from "request";
 
-await client.get("/reports", undefined, {
+await client.get("/reports", {
   retry: {
     max: 3,
     delay: 500,
@@ -248,11 +230,13 @@ await client.get("/reports", undefined, {
   },
 });
 
-await client.get("/reports/preview", undefined, { retry: 0 });
+await client.get("/reports/preview", { retry: 0 });
 ```
 
 默认重试网络错误、超时、HTTP `408`、`429` 和 `5xx`。重试只对 `GET`、`PUT`、`DELETE`
 生效；如确实需要重试 `POST` 或 `PATCH`，必须显式设置 `retryNonIdempotent: true`。
+可选的 `maxDelay` 限制每次等待，`jitter: "full"` 将退避等待随机分布在零到计算值之间；
+`respectRetryAfter: true` 会读取 HTTP 响应的 `Retry-After` 秒数或日期，并受 `maxDelay` 限制。
 
 ## 取消请求
 
@@ -260,7 +244,7 @@ await client.get("/reports/preview", undefined, { retry: 0 });
 
 ```ts
 const controller = new AbortController();
-const request = client.get("/slow", undefined, { signal: controller.signal });
+const request = client.get("/slow", { signal: controller.signal });
 
 controller.abort();
 await request;
@@ -430,13 +414,14 @@ const client = createHttpClient({ adapter });
 ## 插件
 
 内置插件的初始化参数都可被单次请求配置覆盖。优先级固定为：
-`config.[插件名]` > `config.meta.[插件名]` > `createXxxPlugin(options)` > 插件默认值。当前内置插件
-支持 `config.dedupe`、`config.mock` 和 `config.logger`，并兼容旧的 `meta.*` 写法。
+`config.[插件名]` > `createXxxPlugin(options)` > 插件默认值。当前内置插件支持
+`config.dedupe`、`config.mock` 和 `config.logger`。
 
 ### 请求去重插件
 
-相同 HTTP 方法、完整地址、查询参数和请求体在默认 2 秒窗口内只会执行一次底层请求，后续调用
-复用首次请求的结果。每个调用仍会独立执行响应拦截器，也可以通过自己的 `AbortSignal` 停止
+默认只合并同时进行的 GET/HEAD 请求；请求完成后会移除去重记录。默认键包含最终地址、
+请求头、凭证设置和其他会影响响应的请求配置。每个调用仍会独立执行响应拦截器，也可以通过
+自己的 `AbortSignal` 停止
 等待，而不会取消其他调用共享的底层请求。
 
 ```ts
@@ -445,28 +430,30 @@ import { createDedupePlugin } from "request";
 const removeDedupe = client.use(createDedupePlugin());
 
 // 两次调用只发送一次请求。
-const first = client.get("/users", { page: 1 });
-const second = client.get("/users", { page: 1 });
+const first = client.get("/users", { params: { page: 1 } });
+const second = client.get("/users", { params: { page: 1 } });
 await Promise.all([first, second]);
 
 removeDedupe();
 ```
 
-通过 `windowMs` 自定义窗口，例如改为 5 秒：
+通过 `windowMs` 限制合并窗口；需要在成功后继续复用结果时显式开启 `cacheSettled`：
 
 ```ts
-client.use(createDedupePlugin({ windowMs: 5_000 }));
+client.use(createDedupePlugin({ windowMs: 5_000, cacheSettled: true }));
 ```
 
 默认键会稳定序列化普通对象、数组、`Date` 和 `URLSearchParams`，因此对象字段声明顺序不会影响
 匹配。`FormData`、`Blob`、循环引用等无法可靠序列化的数据默认跳过去重；可使用 `createKey`
-按业务规则生成键，返回 `undefined` 时也会跳过当前请求。
+按业务规则生成键，返回 `undefined` 时也会跳过当前请求。POST/PATCH 等写请求默认跳过去重，
+只有显式提供自定义 `createKey` 才会参与。
+自定义键应包含鉴权身份及所有会影响响应的配置，避免在不同请求之间错误共享结果。
 
 ```ts
 client.use(
   createDedupePlugin({
     windowMs: 3_000,
-    createKey: (config) => (config.meta?.dedupeKey ? String(config.meta.dedupeKey) : undefined),
+    createKey: (config) => config.headers?.["x-dedupe-key"],
   }),
 );
 ```
@@ -475,9 +462,9 @@ client.use(
 专用去重键：
 
 ```ts
-await client.get("/users", { page: 1 }, { dedupe: { windowMs: 0 } });
+await client.get("/users", { params: { page: 1 }, dedupe: { windowMs: 0 } });
 
-await client.get("/jobs", undefined, {
+await client.get("/jobs", {
   dedupe: {
     createKey: (config) => String(config.headers?.["x-job-id"]),
   },
@@ -532,7 +519,7 @@ removeMock();
 | -------------------------- | ---------------------------------------------------- |
 | `string`                   | 精确匹配合并 `baseURL` 后的 URL                      |
 | `RegExp`                   | 使用正则匹配 URL，插件会在每次匹配前重置 `lastIndex` |
-| `(url, config) => boolean` | 自定义同步或异步匹配，可读取参数、请求体和 `meta`    |
+| `(url, config) => boolean` | 自定义同步或异步匹配，可读取参数和请求体             |
 
 `method` 可以是单个 HTTP 方法或方法数组，省略时匹配所有方法。路由按照声明顺序匹配，第一条
 命中的规则生效。
@@ -543,7 +530,7 @@ const mock = createMockPlugin({
   routes: [
     {
       method: ["GET", "DELETE"],
-      url: (url, config) => url.startsWith("/items/") && config.meta?.mock === true,
+      url: (url, config) => url.startsWith("/items/") && config.params?.preview === true,
       response: { ok: true },
       once: true,
     },
@@ -565,8 +552,7 @@ const mock = createMockPlugin({
 
 单次请求可通过 `mock` 跳过初始化 `routes` 匹配。`mock` 是普通对象或函数时直接作为响应体返回；
 是包含 `url` 和 `response` 的 `MockRoute` 对象时，直接作为命中的路由处理，路由的 `status`、
-`statusText`、`headers`、`delay` 和 `once` 继续生效。`mock` 优先级高于兼容写法
-`meta.mock`。
+`statusText`、`headers`、`delay` 和 `once` 继续生效。
 
 ```ts
 await client.post(
@@ -581,18 +567,18 @@ await client.post(
   },
 );
 
-await client.get("/users/1", undefined, {
+await client.get("/users/1", {
   mock: {
     url: "/not-used-for-matching",
     response: { code: 0, data: { id: "1", name: "Alice" } },
     status: 201,
-    headers: { "x-meta-mock": "true" },
+    headers: { "x-mock": "true" },
   },
 });
 ```
 
-> 默认客户端仍会对 Mock 响应执行响应拦截器和业务响应解包。若启用了默认解包，Mock 数据可按
-> `{ code: 0, data: ... }` 返回；不含 `code` 的响应则保持原样。
+> Mock 响应仍会经过响应拦截器。若在创建客户端时启用了业务解包，Mock 数据可按
+> `{ code: 0, data: ... }` 返回；否则保持原样。
 
 ### 日志插件
 
