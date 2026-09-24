@@ -1,5 +1,5 @@
 import { HttpError, normalizeRequestError } from "@/error.ts";
-import { resolveURL } from "@/helpers.ts";
+import { getAbortReason, resolveURL } from "@/internal/request.ts";
 import { InterceptorManager } from "@/interceptor.ts";
 import { executeWithRetry } from "@/retry.ts";
 import type {
@@ -224,6 +224,7 @@ export class RequestClient {
         executeWithRetry(
           async () => {
             try {
+              if (finalConfig.signal?.aborted) throw getAbortReason(finalConfig.signal);
               const response =
                 (await this.#resolveRequest(finalConfig)) ??
                 (await this.adapter.request<T>(finalConfig));

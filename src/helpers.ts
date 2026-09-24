@@ -9,6 +9,8 @@ import type {
   ResponseEnvelopeOptions,
 } from "@/types.ts";
 
+export { getAbortReason, resolveURL } from "@/internal/request.ts";
+
 /**
  * 创建请求客户端。
  * 默认使用 FetchAdapter、10 秒超时；可按需启用业务响应解包。
@@ -122,22 +124,4 @@ export function createResponseEnvelopeInterceptor(
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
-}
-
-/**
- * 从 AbortSignal 提取取消原因；如果不是 Error 则包装为 AbortError。
- *
- * @param signal - 可选的 AbortSignal。
- * @returns 取消原因对应的 Error 实例。
- */
-export function getAbortReason(signal?: AbortSignal): Error {
-  if (signal?.reason instanceof Error) return signal.reason;
-  const error = new Error("Request aborted", { cause: signal?.reason });
-  error.name = "AbortError";
-  return error;
-}
-
-export function resolveURL(baseURL: string = "", url: string): string {
-  if (!baseURL || /^(?:[a-z]+:)?\/\//i.test(url)) return url;
-  return `${baseURL.replace(/\/$/, "")}/${url.replace(/^\//, "")}`;
 }

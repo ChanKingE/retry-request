@@ -1,4 +1,5 @@
 import { HttpError, NetworkError, TimeoutError, type RequestError } from "@/error.ts";
+import { getAbortReason } from "@/internal/request.ts";
 import type { HttpMethod, RetryPolicy } from "@/types.ts";
 
 const IDEMPOTENT_METHODS = new Set<HttpMethod>(["GET", "HEAD", "OPTIONS", "PUT", "DELETE"]);
@@ -22,6 +23,7 @@ export async function executeWithRetry<T>(
   method: HttpMethod,
   signal?: AbortSignal,
 ): Promise<T> {
+  if (signal?.aborted) throw getAbortReason(signal);
   const resolved = resolveRetryPolicy(policy);
   if (!resolved || (!IDEMPOTENT_METHODS.has(method) && !resolved.retryNonIdempotent)) {
     return operation();
@@ -99,7 +101,7 @@ function getRetryAfterDelay(error: unknown): number | undefined {
 }
 
 function wait(delay: number, signal?: AbortSignal): Promise<void> {
-  if (signal?.aborted) return Promise.reject(signal.reason);
+  if (signal?.aborted) return Promise.reject(getAbortReason(signal));
   if (delay <= 0) return Promise.resolve();
 
   return new Promise((resolve, reject) => {
@@ -109,7 +111,7 @@ function wait(delay: number, signal?: AbortSignal): Promise<void> {
     };
     const abort = () => {
       clearTimeout(timer);
-      reject(signal?.reason);
+      reject(getAbortReason(signal));
     };
     const timer = setTimeout(finish, delay);
     signal?.addEventListener("abort", abort, { once: true });

@@ -1,5 +1,7 @@
 import type { RequestError } from "@/error.ts";
 
+type RequiredPick<T, K extends keyof T> = Omit<T, K> & Required<Pick<T, K>>;
+
 /**
  * 单次请求配置的业务扩展点。
  *
