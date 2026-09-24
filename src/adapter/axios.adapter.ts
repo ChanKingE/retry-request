@@ -1,5 +1,5 @@
 import { HttpError, NetworkError, TimeoutError } from "@/error.ts";
-import { getAbortReason } from "@/helpers.ts";
+import { getAbortReason } from "@/internal/request.ts";
 import type { HttpAdapter, HttpMethod, HttpResponse, RequestOptions } from "@/types.ts";
 
 /** AxiosAdapter 传给 Axios 实例的最小请求配置。 */
@@ -105,10 +105,7 @@ export class AxiosAdapter implements HttpAdapter {
     const axiosConfig: AxiosRequestConfigLike & Record<string, unknown> = {
       ...adapterOptions,
       ...requestConfig,
-      ...config,
-      url: config.url,
-      method,
-      data: method === "GET" || method === "HEAD" ? undefined : config.data,
+      ...toAxiosRequestConfig(config, method),
     };
     if (/^(?:[a-z]+:)?\/\//i.test(config.url)) {
       delete axiosConfig.baseURL;
@@ -137,6 +134,25 @@ export class AxiosAdapter implements HttpAdapter {
       throw normalizeAxiosError(error, config);
     }
   }
+}
+
+/** 将跨适配器的请求字段显式映射为 Axios 配置，避免泄漏插件或业务扩展字段。 */
+function toAxiosRequestConfig(config: RequestOptions, method: HttpMethod): AxiosRequestConfigLike {
+  return {
+    url: config.url,
+    method,
+    ...(config.baseURL !== undefined ? { baseURL: config.baseURL } : {}),
+    ...(config.params !== undefined ? { params: config.params } : {}),
+    ...(method === "GET" || method === "HEAD"
+      ? { data: undefined }
+      : config.data !== undefined
+        ? { data: config.data }
+        : {}),
+    ...(config.headers !== undefined ? { headers: config.headers } : {}),
+    ...(config.timeout !== undefined ? { timeout: config.timeout } : {}),
+    ...(config.withCredentials !== undefined ? { withCredentials: config.withCredentials } : {}),
+    ...(config.signal !== undefined ? { signal: config.signal } : {}),
+  };
 }
 
 function normalizeAxiosError(error: unknown, config: RequestOptions): Error {

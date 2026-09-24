@@ -1,4 +1,5 @@
 import { HttpError, TimeoutError, isAbortError } from "@/error.ts";
+import { appendQueryParams, getAbortReason } from "@/internal/request.ts";
 import type { HttpAdapter, HttpResponse, RequestOptions } from "@/types.ts";
 
 /**
@@ -51,7 +52,7 @@ export class FetchAdapter implements HttpAdapter {
       const method = config.method ?? "GET";
       const body =
         method === "GET" || method === "HEAD" ? undefined : createBody(config.data, headers);
-      const response = await fetch(appendParams(config.url, config.params), {
+      const response = await fetch(appendQueryParams(config.url, config.params), {
         method,
         headers,
         body,
@@ -78,33 +79,13 @@ export class FetchAdapter implements HttpAdapter {
       if (timedOut && isAbortError(error)) {
         throw new TimeoutError(undefined, { cause: error, config });
       }
+      if (config.signal?.aborted) throw getAbortReason(config.signal);
       throw error;
     } finally {
       if (timer) clearTimeout(timer);
       config.signal?.removeEventListener("abort", abortFromSignal);
     }
   }
-}
-
-function appendParams(url: string, params: unknown): string {
-  if (params === undefined || params === null) return url;
-  const search = new URLSearchParams();
-
-  if (params instanceof URLSearchParams) {
-    params.forEach((value, key) => search.append(key, value));
-  } else if (typeof params === "object") {
-    for (const [key, value] of Object.entries(params)) {
-      if (value === undefined || value === null) continue;
-      if (Array.isArray(value)) value.forEach((item) => search.append(key, String(item)));
-      else search.append(key, String(value));
-    }
-  } else {
-    throw new TypeError("Request params must be an object or URLSearchParams");
-  }
-
-  const query = search.toString();
-  if (!query) return url;
-  return `${url}${url.includes("?") ? "&" : "?"}${query}`;
 }
 
 function createBody(
@@ -132,6 +113,12 @@ async function readBody(response: Response): Promise<unknown> {
   if (response.status === 204 || response.status === 205) return undefined;
   const text = await response.text();
   if (!text) return undefined;
-  if (response.headers.get("content-type")?.includes("application/json")) return JSON.parse(text);
+  const contentType = response.headers.get("content-type")?.split(";", 1)[0]?.trim().toLowerCase();
+  if (
+    contentType === "application/json" ||
+    (contentType?.startsWith("application/") && contentType.endsWith("+json"))
+  ) {
+    return JSON.parse(text);
+  }
   return text;
 }

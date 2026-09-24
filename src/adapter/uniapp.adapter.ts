@@ -1,5 +1,5 @@
 import { HttpError, NetworkError, TimeoutError } from "@/error.ts";
-import { getAbortReason } from "@/helpers.ts";
+import { appendQueryParams, getAbortReason } from "@/internal/request.ts";
 import type { HttpAdapter, HttpResponse, RequestOptions } from "@/types.ts";
 
 /** UniApp `uni.request` 支持的请求体数据。 */
@@ -215,8 +215,8 @@ export class UniAppAdapter implements HttpAdapter {
       };
       const abortFromSignal = () => {
         abortRequested = true;
-        task?.abort();
         rejectOnce(getAbortReason(config.signal));
+        task?.abort();
       };
 
       config.signal?.addEventListener("abort", abortFromSignal, { once: true });
@@ -224,7 +224,7 @@ export class UniAppAdapter implements HttpAdapter {
       try {
         task = request({
           ...this.#options.requestOptions,
-          url: appendParams(config.url, config.params),
+          url: appendQueryParams(config.url, config.params),
           data: config.data as UniRequestData | undefined,
           header: config.headers,
           method: toUniMethod(config.method),
@@ -268,8 +268,8 @@ export class UniAppAdapter implements HttpAdapter {
         if (abortRequested) task.abort();
         if (config.timeout !== undefined && config.timeout > 0 && !settled) {
           timer = setTimeout(() => {
-            task?.abort();
             rejectOnce(new TimeoutError(undefined, { config }));
+            task?.abort();
           }, config.timeout);
         }
       } catch (error) {
@@ -285,24 +285,6 @@ function resolveGlobalRequest(): UniRequest | undefined {
   };
   const request = runtime.uni?.request;
   return request?.bind(runtime.uni);
-}
-
-function appendParams(url: string, params: unknown): string {
-  if (params === undefined || params === null) return url;
-  if (typeof params !== "object") {
-    throw new TypeError("Request params must be an object");
-  }
-
-  const entries: string[] = [];
-  for (const [key, value] of Object.entries(params)) {
-    if (value === undefined || value === null) continue;
-    const values = Array.isArray(value) ? value : [value];
-    for (const item of values) {
-      entries.push(`${encodeURIComponent(key)}=${encodeURIComponent(String(item))}`);
-    }
-  }
-  if (entries.length === 0) return url;
-  return `${url}${url.includes("?") ? "&" : "?"}${entries.join("&")}`;
 }
 
 function normalizeHeaders(headers?: unknown): Record<string, string> {
