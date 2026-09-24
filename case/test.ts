@@ -4,7 +4,6 @@ const client = createHttpClient({
   baseURL: "https://api.example.com",
   timeout: 5_000,
   withCredentials: true,
-  headers: { "x-client-version": "1.0.0" },
 });
 client.use(
   createMockPlugin({
@@ -28,12 +27,25 @@ client.use(
     ],
   }),
 );
-
+client.interceptors.request.use(async (config) => {
+  await new Promise((resolve) => {
+    console.log("加载中...");
+    setTimeout(resolve, 500);
+  });
+  return config;
+});
+client.interceptors.request.use(async (config) => {
+  await new Promise((resolve) => {
+    console.log("加载完成...");
+    setTimeout(resolve, 200);
+  });
+  return config;
+});
 async function run() {
   const baseURL = "/api";
   const url = "/hello";
   //  ?commsTest=XC0515
-  void client.request<{ data: unknown }, { data: unknown; query: unknown }>({
+  const response = await client.request<{ data: unknown }, { data: unknown; query: unknown }>({
     url,
     baseURL,
     method: "POST",
@@ -48,5 +60,6 @@ async function run() {
     },
     retry: 3,
   });
+  console.log(response);
 }
 void run();

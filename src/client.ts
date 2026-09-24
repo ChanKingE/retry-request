@@ -67,10 +67,10 @@ export class RequestClient {
     return {
       /** 请求拦截器 */
       request: {
-        use: this.useRequestInterceptor,
+        use: this.useRequestInterceptor.bind(this),
       },
       response: {
-        use: this.useResponseInterceptor,
+        use: this.useResponseInterceptor.bind(this),
       },
     };
   }

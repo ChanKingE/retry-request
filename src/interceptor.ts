@@ -62,10 +62,10 @@ export class InterceptorManager<T = unknown, E = unknown> {
    */
   async run(value: T | Promise<T>): Promise<T> {
     let latestValue: T | undefined;
-    let chain = (await Promise.resolve(value).then((resolvedValue) => {
+    let chain: Promise<T> = Promise.resolve(value).then((resolvedValue) => {
       latestValue = resolvedValue as T;
       return resolvedValue;
-    })) as Promise<T>;
+    });
 
     for (const interceptor of this.#interceptors) {
       const handlerRejected = async (error: E) => {
@@ -74,7 +74,7 @@ export class InterceptorManager<T = unknown, E = unknown> {
         latestValue = recoveredValue;
         return recoveredValue;
       };
-      chain = (await chain.then(async (currentValue) => {
+      chain = chain.then(async (currentValue) => {
         latestValue = currentValue;
         const fulfilled = typeof interceptor === "function" ? interceptor : interceptor.fulfilled;
         try {
@@ -85,7 +85,7 @@ export class InterceptorManager<T = unknown, E = unknown> {
           if (error instanceof Error === false) throw error;
           return handlerRejected(error as E);
         }
-      }, handlerRejected)) as Promise<T>;
+      }, handlerRejected);
     }
     return chain;
   }
