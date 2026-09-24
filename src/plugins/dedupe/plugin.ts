@@ -1,4 +1,4 @@
-import { getAbortReason, resolveURL } from "@/helpers.ts";
+import { getAbortReason, resolveURL } from "@/internal/request.ts";
 import type { HttpResponse, RequestOptions } from "@/types.ts";
 import type { DedupeKeyGenerator, DedupePlugin, DedupePluginOptions } from "./types.ts";
 

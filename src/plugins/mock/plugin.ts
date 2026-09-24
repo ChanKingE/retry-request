@@ -1,4 +1,4 @@
-import { resolveURL } from "@/helpers.ts";
+import { resolveURL } from "@/internal/request.ts";
 import type { RequestOptions } from "@/types.ts";
 import { findMockRoute } from "./matcher.ts";
 import type {

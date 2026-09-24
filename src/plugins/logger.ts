@@ -9,7 +9,25 @@ export interface LoggerPluginOptions {
    * @defaultValue 全局 `console`
    */
   logger?: Pick<Console, "debug" | "error">;
+  /**
+   * 除内置敏感字段外额外脱敏的请求或响应头名称，不区分大小写。
+   *
+   * @defaultValue `[]`
+   */
+  redactHeaders?: readonly string[];
+  /** 是否在请求日志中记录 `data` 请求体。@defaultValue `false` */
+  logRequestBody?: boolean;
+  /** 是否在响应日志和错误响应中记录 `data` 响应体。@defaultValue `false` */
+  logResponseBody?: boolean;
 }
+
+const DEFAULT_REDACTED_HEADERS = new Set([
+  "authorization",
+  "proxy-authorization",
+  "cookie",
+  "set-cookie",
+  "x-api-key",
+]);
 
 declare module "@/types.ts" {
   interface RequestOptionsExtensions {
@@ -32,26 +50,33 @@ declare module "@/types.ts" {
  * ```
  */
 export function createLoggerPlugin(options: LoggerPluginOptions = {}): RequestPlugin {
-  const defaultLogger = options.logger ?? console;
+  const defaultOptions = normalizeLoggerOptions(options);
   return {
     name: "logger",
     setup(client) {
       const removeRequest = client.useRequestInterceptor({
         fulfilled(config) {
-          const logger = resolveLogger(config, defaultLogger);
-          logger.debug(`[Request] ${config.method ?? "GET"} ${config.url}`, config);
+          const loggerOptions = resolveLoggerOptions(config, defaultOptions);
+          loggerOptions.logger.debug(
+            `[Request] ${config.method ?? "GET"} ${config.url}`,
+            sanitizeRequest(config, loggerOptions),
+          );
           return config;
         },
       });
       const removeResponse = client.useResponseInterceptor({
         fulfilled(response) {
-          const logger = resolveLogger(response.config, defaultLogger);
-          logger.debug(`[Response] ${response.status} ${response.config.url}`, response.data);
+          const loggerOptions = resolveLoggerOptions(response.config, defaultOptions);
+          loggerOptions.logger.debug(
+            `[Response] ${response.status} ${response.config.url}`,
+            loggerOptions.logResponseBody ? response.data : undefined,
+          );
           return response;
         },
         rejected(error, latestResponse) {
-          const logger = resolveLogger(getErrorConfig(error, latestResponse), defaultLogger);
-          logger.error("[Request error]", error);
+          const config = getErrorConfig(error, latestResponse);
+          const loggerOptions = resolveLoggerOptions(config, defaultOptions);
+          loggerOptions.logger.error("[Request error]", sanitizeError(error, loggerOptions));
           throw error;
         },
       });
@@ -63,14 +88,105 @@ export function createLoggerPlugin(options: LoggerPluginOptions = {}): RequestPl
   };
 }
 
-function resolveLogger(
+interface ResolvedLoggerOptions {
+  logger: Pick<Console, "debug" | "error">;
+  redactedHeaders: Set<string>;
+  logRequestBody: boolean;
+  logResponseBody: boolean;
+}
+
+function normalizeLoggerOptions(options: LoggerPluginOptions): ResolvedLoggerOptions {
+  return {
+    logger: isLogger(options.logger) ? options.logger : console,
+    redactedHeaders: new Set([
+      ...DEFAULT_REDACTED_HEADERS,
+      ...(options.redactHeaders ?? []).map((header) => header.toLowerCase()),
+    ]),
+    logRequestBody: options.logRequestBody ?? false,
+    logResponseBody: options.logResponseBody ?? false,
+  };
+}
+
+function resolveLoggerOptions(
   config: RequestOptions | undefined,
-  defaultLogger: Pick<Console, "debug" | "error">,
-): Pick<Console, "debug" | "error"> {
+  defaults: ResolvedLoggerOptions,
+): ResolvedLoggerOptions {
   const requestLogger = config?.logger;
-  if (!isRecord(requestLogger)) return defaultLogger;
-  const logger = requestLogger.logger;
-  return isLogger(logger) ? logger : defaultLogger;
+  if (!isRecord(requestLogger)) return defaults;
+  return {
+    logger: isLogger(requestLogger.logger) ? requestLogger.logger : defaults.logger,
+    redactedHeaders: new Set([
+      ...defaults.redactedHeaders,
+      ...toStringArray(requestLogger.redactHeaders).map((header) => header.toLowerCase()),
+    ]),
+    logRequestBody:
+      typeof requestLogger.logRequestBody === "boolean"
+        ? requestLogger.logRequestBody
+        : defaults.logRequestBody,
+    logResponseBody:
+      typeof requestLogger.logResponseBody === "boolean"
+        ? requestLogger.logResponseBody
+        : defaults.logResponseBody,
+  };
+}
+
+function sanitizeRequest(
+  config: RequestOptions,
+  options: ResolvedLoggerOptions,
+): Record<string, unknown> {
+  const { data, headers, ...request } = config;
+  return {
+    ...request,
+    headers: sanitizeHeaders(headers, options),
+    ...(options.logRequestBody ? { data } : {}),
+  };
+}
+
+function sanitizeError(error: unknown, options: ResolvedLoggerOptions): unknown {
+  if (!isRecord(error)) return error;
+  const { config, response, details: errorDetails, data, body, ...details } = error;
+  return {
+    ...details,
+    ...(error instanceof Error ? { name: error.name, message: error.message } : {}),
+    ...(isRecord(config)
+      ? { config: sanitizeRequest(config as unknown as RequestOptions, options) }
+      : {}),
+    ...(isRecord(response) ? { response: sanitizeResponse(response, options) } : {}),
+    ...(options.logResponseBody && errorDetails !== undefined ? { details: errorDetails } : {}),
+    ...(options.logResponseBody && data !== undefined ? { data } : {}),
+    ...(options.logResponseBody && body !== undefined ? { body } : {}),
+  };
+}
+
+function sanitizeResponse(
+  response: Record<string, unknown>,
+  options: ResolvedLoggerOptions,
+): Record<string, unknown> {
+  const { data, headers, config, ...result } = response;
+  return {
+    ...result,
+    ...(headers ? { headers: sanitizeHeaders(headers, options) } : {}),
+    ...(isRecord(config)
+      ? { config: sanitizeRequest(config as unknown as RequestOptions, options) }
+      : {}),
+    ...(options.logResponseBody ? { data } : {}),
+  };
+}
+
+function sanitizeHeaders(headers: unknown, options: ResolvedLoggerOptions): unknown {
+  if (!isRecord(headers)) return headers;
+  return Object.fromEntries(
+    Object.entries(headers).map(([name, value]) => [
+      name,
+      options.redactedHeaders.has(name.toLowerCase()) ? "[REDACTED]" : value,
+    ]),
+  );
+}
+
+function toStringArray(value: unknown): string[] {
+  return Array.isArray(value)
+    ? value.filter((item): item is string => typeof item === "string")
+    : [];
 }
 
 function getErrorConfig(

@@ -1,3 +1,4 @@
+import { getAbortReason } from "@/internal/request.ts";
 import type { RequestOptions } from "@/types.ts";
 
 /**
@@ -22,7 +23,7 @@ export function snapshotRequestOptions(config: RequestOptions): RequestOptions {
  * @throws signal 已取消或等待期间被取消时，抛出 signal 的取消原因。
  */
 export function waitForMockDelay(delay: number, signal?: AbortSignal): Promise<void> {
-  if (signal?.aborted) return Promise.reject(signal.reason);
+  if (signal?.aborted) return Promise.reject(getAbortReason(signal));
   if (delay <= 0) return Promise.resolve();
 
   return new Promise((resolve, reject) => {
@@ -32,7 +33,7 @@ export function waitForMockDelay(delay: number, signal?: AbortSignal): Promise<v
     };
     const abort = () => {
       clearTimeout(timer);
-      reject(signal?.reason);
+      reject(getAbortReason(signal));
     };
     const timer = setTimeout(finish, delay);
     signal?.addEventListener("abort", abort, { once: true });
