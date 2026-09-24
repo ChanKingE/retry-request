@@ -17,6 +17,9 @@ export default defineConfig({
     exports: true,
     minify: true,
   },
+  test: {
+    globals: true,
+  },
   lint: {
     ignorePatterns: ["**/*.test.ts"],
     options: {
