@@ -48,9 +48,11 @@ export class FetchAdapter implements HttpAdapter {
 
     try {
       const headers = new Headers(config.headers);
-      const body = createBody(config.data, headers);
+      const method = config.method ?? "GET";
+      const body =
+        method === "GET" || method === "HEAD" ? undefined : createBody(config.data, headers);
       const response = await fetch(appendParams(config.url, config.params), {
-        method: config.method,
+        method,
         headers,
         body,
         credentials: config.withCredentials ? "include" : "same-origin",

@@ -55,6 +55,7 @@ export interface AxiosAdapterOptions {
    *
    * @remarks URL、方法、参数、请求体、请求头、超时、凭证和 signal 会被单次 RequestOptions 覆盖。
    */
+  requestConfig?: Partial<AxiosRequestConfigLike> & Record<string, unknown>;
   [key: string]: unknown;
 }
 
@@ -99,19 +100,30 @@ export class AxiosAdapter implements HttpAdapter {
    */
   async request<T>(config: RequestOptions): Promise<HttpResponse<T>> {
     if (config.signal?.aborted) throw getAbortReason(config.signal);
+    const { requestConfig = {}, ...adapterOptions } = this.options;
+    const method = config.method ?? "GET";
+    const axiosConfig: AxiosRequestConfigLike & Record<string, unknown> = {
+      ...adapterOptions,
+      ...requestConfig,
+      ...config,
+      url: config.url,
+      method,
+      data: method === "GET" || method === "HEAD" ? undefined : config.data,
+    };
+    if (/^(?:[a-z]+:)?\/\//i.test(config.url)) {
+      delete axiosConfig.baseURL;
+    } else {
+      const defaults = this.instance.defaults;
+      const defaultBaseURL =
+        defaults && typeof defaults === "object" && "baseURL" in defaults
+          ? defaults.baseURL
+          : undefined;
+      const baseURL =
+        config.baseURL ?? requestConfig.baseURL ?? adapterOptions.baseURL ?? defaultBaseURL;
+      if (typeof baseURL === "string") axiosConfig.baseURL = baseURL;
+    }
     try {
-      const response = await this.instance.request<T>({
-        ...this.options,
-        ...config,
-        url: config.url,
-        method: config.method ?? "GET",
-        params: config.params,
-        data: config.data,
-        headers: config.headers,
-        timeout: config.timeout,
-        withCredentials: config.withCredentials,
-        signal: config.signal,
-      });
+      const response = await this.instance.request<T>(axiosConfig);
       const normalized = normalizeResponse(response, config);
       if (normalized.status >= 400) {
         throw new HttpError(
