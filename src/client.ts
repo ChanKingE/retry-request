@@ -14,6 +14,7 @@ import type {
   RequestMiddleware,
   RequestPlugin,
   RequestResolver,
+  InterceptorRequestOptions,
 } from "./types.ts";
 type UrlRequestOptions<TBody = unknown> = Omit<RequestOptions<TBody>, "url" | "method">;
 type MethodRequestOptions<TBody = unknown> = Omit<RequestOptions<TBody>, "method">;
@@ -34,7 +35,7 @@ type MethodRequestOptions<TBody = unknown> = Omit<RequestOptions<TBody>, "method
  * ```
  */
 export class RequestClient {
-  readonly #requestInterceptors = new InterceptorManager<RequestOptions>();
+  readonly #requestInterceptors = new InterceptorManager<InterceptorRequestOptions>();
   readonly #responseInterceptors = new InterceptorManager<HttpResponse<unknown>>();
   readonly #requestResolvers: RequestResolver[] = [];
   readonly #requestMiddlewares: RequestMiddleware[] = [];
@@ -51,7 +52,10 @@ export class RequestClient {
    */
   constructor(
     readonly adapter: HttpAdapter,
-    defaults: ClientOptions = {},
+    defaults: ClientOptions = {
+      headers: {},
+      timeout: 30_000,
+    },
   ) {
     this.#defaults = defaults;
   }
@@ -77,13 +81,13 @@ export class RequestClient {
    * @param interceptor - 接收并可修改最终请求配置的拦截器。
    * @returns 卸载函数；卸载后该拦截器不再参与后续请求。
    */
-  useRequestInterceptor<T extends Record<string, unknown> = Record<string, unknown>>(
-    interceptor: InterceptorInput<RequestOptions<T>>,
-    rejected?: InterceptorRejected<RequestOptions<T>>,
+  useRequestInterceptor(
+    interceptor: InterceptorInput<InterceptorRequestOptions>,
+    rejected?: InterceptorRejected<InterceptorRequestOptions>,
   ): () => void {
     return this.#requestInterceptors.use(
-      interceptor as InterceptorInput<RequestOptions>,
-      rejected as InterceptorRejected<RequestOptions> | undefined,
+      interceptor as InterceptorInput<InterceptorRequestOptions>,
+      rejected as InterceptorRejected<InterceptorRequestOptions> | undefined,
     );
   }
 
@@ -99,8 +103,8 @@ export class RequestClient {
     rejected?: InterceptorRejected<HttpResponse<T>>,
   ): () => void {
     return this.#responseInterceptors.use(
-      interceptor as InterceptorInput<HttpResponse>,
-      rejected as InterceptorRejected<HttpResponse> | undefined,
+      interceptor as InterceptorInput<HttpResponse<unknown>>,
+      rejected as InterceptorRejected<HttpResponse<unknown>> | undefined,
     );
   }
 
@@ -398,8 +402,11 @@ export class RequestClient {
     return this.request<T, TData>(normalizeDataMethodRequest("PATCH", urlOrConfig, data, config));
   }
 
-  #applyDefaults<TBody>(config: RequestOptions<TBody>): RequestOptions {
+  #applyDefaults<TBody>(config: RequestOptions<TBody>): InterceptorRequestOptions {
     return {
+      params: {},
+      headers: {},
+      data: {},
       ...this.#defaults,
       ...config,
       method: normalizeMethod(config.method),

@@ -1,9 +1,5 @@
 import type { RequestError } from "@/error.ts";
 
-interface ClientMeta {
-  [key: string]: unknown;
-}
-
 /**
  * 单次请求配置的业务扩展点。
  *
@@ -121,12 +117,6 @@ export interface CommonOptions {
   withCredentials?: boolean;
   /** 每次请求都会合并的默认请求头；同名字段覆盖客户端默认请求头。 */
   headers?: Record<string, string>;
-  /**
-   * 提供给所有请求、拦截器和插件的上下文。
-   *
-   * @remarks 单次请求的 meta 与客户端全局 meta 浅合并，并覆盖全局上下文中的同名键。
-   */
-  meta?: ClientMeta;
 }
 
 /**
@@ -169,8 +159,18 @@ export interface HttpResponse<T = unknown> {
   /** 标准化为字符串键值的响应头。 */
   headers: Record<string, string>;
   /** 实际发送给适配器的最终请求配置。 */
-  config: RequestOptions;
+  config: InterceptorRequestOptions;
 }
+
+/**
+ * 请求拦截器可处理的配置。
+ *
+ * @remarks 仅包含 {@link RequestOptions} 中的必填字段，其他字段在请求拦截器中不可访问。
+ */
+export interface InterceptorRequestOptions extends RequiredPick<
+  RequestOptions,
+  "headers" | "data" | "params" | "method" | "url"
+> {}
 
 /**
  * HTTP 底层适配器契约，可用于接入 Fetch、Axios、小程序请求 API 或测试 Mock。
@@ -300,9 +300,9 @@ export interface RequestClientLike {
    * @param interceptor - 插件提供的请求拦截器。
    * @returns 对应拦截器的卸载函数。
    */
-  useRequestInterceptor<T extends Record<string, unknown>>(
-    interceptor: InterceptorInput<RequestOptions<T>>,
-    rejected?: InterceptorRejected<RequestOptions<T>>,
+  useRequestInterceptor(
+    interceptor: InterceptorInput<InterceptorRequestOptions>,
+    rejected?: InterceptorRejected<InterceptorRequestOptions>,
   ): () => void;
   /**
    * 注册响应拦截器。
