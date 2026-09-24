@@ -39,6 +39,7 @@
     "preview:test": "bun case/test.ts",
     "dev": "vp pack --watch",
     "test": "vp test",
+    "test:published-types": "vp pack && tsc --ignoreConfig --noEmit --strict --module nodenext --moduleResolution nodenext tests/fixtures/published-types.consumer.ts",
     "check": "vp check",
     "prepublishOnly": "vp pack",
     "prepare": "vp config"

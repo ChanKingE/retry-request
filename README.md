@@ -155,7 +155,7 @@ client.useRequestInterceptor({
   },
 });
 
-await client.get("/public-profile", undefined, { withToken: false });
+await client.get("/public-profile", { withToken: false });
 ```
 
 ## 拦截器
@@ -328,8 +328,9 @@ const adapter = new AxiosAdapter(axiosInstance, {
 });
 ```
 
-`requestConfig` 会先合并，随后由统一请求配置覆盖 `url`、`method`、`params`、`data`、
-`headers`、`timeout`、`withCredentials` 和 `signal`。
+`requestConfig` 会先合并，随后由统一请求配置覆盖 `url`、`baseURL`、`method`、`params`、
+`data`、`headers`、`timeout`、`withCredentials` 和 `signal`。`mock`、`logger`、`dedupe` 及通过
+`RequestOptionsExtensions` 增加的业务字段只供请求库和业务逻辑使用，不会传递给 Axios。
 
 Axios 响应会转换为标准 `HttpResponse`。Axios 的 HTTP 响应错误、`ECONNABORTED`/
 `ETIMEDOUT`、无响应错误和 `ERR_CANCELED` 分别转换为 `HttpError`、`TimeoutError`、
@@ -591,7 +592,7 @@ const removeLogger = client.use(
   }),
 );
 
-await client.get("/users", undefined, {
+await client.get("/users", {
   logger: {
     logger: {
       debug: (...args) => debugReporter.send(args),
@@ -603,6 +604,18 @@ await client.get("/users", undefined, {
 removeLogger();
 ```
 
+日志默认会将 `authorization`、`proxy-authorization`、`cookie`、`set-cookie` 和 `x-api-key`
+（忽略大小写）替换为 `[REDACTED]`，并且不记录请求或响应正文。可通过初始化参数或单次请求的
+`logger` 扩展脱敏列表，并按需开启正文日志：
+
+```ts
+client.use(createLoggerPlugin({ redactHeaders: ["x-tenant-token"], logResponseBody: true }));
+
+await client.post("/users", form, {
+  logger: { logRequestBody: true },
+});
+```
+
 自定义插件通过 `setup(client)` 注册拦截器或其他能力，并可返回清理函数。重复安装同一个插件
 对象时，客户端会复用已有的清理函数。
 
@@ -610,7 +623,8 @@ removeLogger();
 
 - 默认适配器依赖运行环境提供 `fetch`、`Headers`、`AbortController` 等 Web API。
 - UniApp 适配器依赖运行环境提供 `uni.request`，也可以通过构造参数显式注入。
-- 自动业务响应解包只处理含配置 code 字段的对象，其他响应不会被改变。
+- 业务响应解包为可选功能：`createHttpClient()` 返回原始响应数据；使用
+  `createHttpClient(options, true)` 或注册 `createResponseEnvelopeInterceptor()` 后才会解包。
 
 ## 开发与验证
 
