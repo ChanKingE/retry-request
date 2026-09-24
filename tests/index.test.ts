@@ -1,4 +1,3 @@
-import { afterEach, describe, expect, test, vi } from "vite-plus/test";
 import {
   BusinessError,
   FetchAdapter,
@@ -10,6 +9,7 @@ import {
   createHttpClient,
   createRequest,
   createResponseEnvelopeInterceptor,
+  executeWithRetry,
   type HttpAdapter,
   type HttpResponse,
   type RequestOptions,
@@ -45,14 +45,33 @@ afterEach(() => {
 });
 
 describe("RequestClient", () => {
-  test("creates a default client with an injectable adapter, timeout, and response unwrapping", async () => {
+  test("creates a default client with an injectable adapter and timeout without unwrapping", async () => {
     const adapter = new ScriptedAdapter(async (config) =>
       response({ code: 0, data: { ready: true } }, config),
     );
     const client = createHttpClient({ adapter });
 
-    await expect(client.get("/ready")).resolves.toEqual({ ready: true });
+    await expect(client.get("/ready")).resolves.toEqual({ code: 0, data: { ready: true } });
     expect(adapter.calls[0]?.timeout).toBe(10_000);
+  });
+
+  test("configures response unwrapping through the second factory argument", async () => {
+    const standardAdapter = new ScriptedAdapter(async (config) =>
+      response({ code: 0, data: { ready: true } }, config),
+    );
+    const customAdapter = new ScriptedAdapter(async (config) =>
+      response({ status: "SUCCESS", result: { ready: true } }, config),
+    );
+
+    await expect(createHttpClient({ adapter: standardAdapter }, true).get("/ready")).resolves.toEqual({
+      ready: true,
+    });
+    await expect(
+      createHttpClient(
+        { adapter: customAdapter },
+        { successCode: "SUCCESS", codeKey: "status", dataKey: "result" },
+      ).get("/ready"),
+    ).resolves.toEqual({ ready: true });
   });
 
   test("supports axios-style request and method helper calls", async () => {
@@ -94,7 +113,7 @@ describe("RequestClient", () => {
         url: "/get-config",
         method: "GET",
         params: { page: 1 },
-        data: undefined,
+        data: {},
         baseURL: undefined,
         headers: {},
         retry: undefined,
@@ -103,7 +122,7 @@ describe("RequestClient", () => {
         url: "/get-url-config",
         method: "GET",
         params: { page: 2 },
-        data: undefined,
+        data: {},
         baseURL: "",
         headers: {},
         retry: undefined,
@@ -112,7 +131,7 @@ describe("RequestClient", () => {
         url: "/delete-url-config",
         method: "DELETE",
         params: { page: 3 },
-        data: undefined,
+        data: {},
         baseURL: undefined,
         headers: {},
         retry: undefined,
@@ -120,8 +139,8 @@ describe("RequestClient", () => {
       {
         url: "/head-url-config",
         method: "HEAD",
-        params: undefined,
-        data: undefined,
+        params: {},
+        data: {},
         baseURL: undefined,
         headers: { "x-head": "1" },
         retry: undefined,
@@ -129,8 +148,8 @@ describe("RequestClient", () => {
       {
         url: "/options-url-config",
         method: "OPTIONS",
-        params: undefined,
-        data: undefined,
+        params: {},
+        data: {},
         baseURL: undefined,
         headers: {},
         retry: 0,
@@ -138,7 +157,7 @@ describe("RequestClient", () => {
       {
         url: "/post-config",
         method: "POST",
-        params: undefined,
+        params: {},
         data: { name: "Ada" },
         baseURL: undefined,
         headers: {},
@@ -147,7 +166,7 @@ describe("RequestClient", () => {
       {
         url: "/post-payload-config",
         method: "POST",
-        params: undefined,
+        params: {},
         data: { name: "Linus" },
         baseURL: undefined,
         headers: { "x-name": "1" },
@@ -165,7 +184,7 @@ describe("RequestClient", () => {
       {
         url: "/patch-payload-config",
         method: "PATCH",
-        params: undefined,
+        params: {},
         data: { id: 2 },
         baseURL: undefined,
         headers: {},
@@ -197,13 +216,13 @@ describe("RequestClient", () => {
     expect(
       adapter.calls.map(({ url, method, params, data }) => ({ url, method, params, data })),
     ).toEqual([
-      { url: "/get", method: "GET", params: { page: 1 }, data: undefined },
-      { url: "/delete", method: "DELETE", params: { force: true }, data: undefined },
-      { url: "/head", method: "HEAD", params: undefined, data: undefined },
-      { url: "/options", method: "OPTIONS", params: undefined, data: undefined },
-      { url: "/post", method: "POST", params: undefined, data: { name: "Ada" } },
-      { url: "/put", method: "PUT", params: undefined, data: { id: 1 } },
-      { url: "/patch", method: "PATCH", params: undefined, data: { id: 2 } },
+      { url: "/get", method: "GET", params: { page: 1 }, data: {} },
+      { url: "/delete", method: "DELETE", params: { force: true }, data: {} },
+      { url: "/head", method: "HEAD", params: {}, data: {} },
+      { url: "/options", method: "OPTIONS", params: {}, data: {} },
+      { url: "/post", method: "POST", params: {}, data: { name: "Ada" } },
+      { url: "/put", method: "PUT", params: {}, data: { id: 1 } },
+      { url: "/patch", method: "PATCH", params: {}, data: { id: 2 } },
     ]);
   });
 
@@ -230,14 +249,16 @@ describe("RequestClient", () => {
     });
     removeSecond();
 
-    await expect(client.get<{ ok: boolean }>("/users")).resolves.toEqual({ ok: true });
+    await expect(
+      client.get<{ ok: boolean }>("/users", { headers: { "x-request": "yes" } }),
+    ).resolves.toEqual({ ok: true });
     expect(order).toEqual(["first"]);
     expect(adapter.calls[0]).toMatchObject({
       url: "https://api.example.com/users",
       baseURL: "https://api.example.com/",
       method: "GET",
       timeout: 5_000,
-      headers: { "x-default": "yes", "x-first": "1" },
+      headers: { "x-default": "yes", "x-request": "yes", "x-first": "1" },
     });
   });
 
@@ -294,23 +315,35 @@ describe("RequestClient", () => {
     ]);
   });
 
-  test("merges global and request meta without mutating either source", async () => {
+  test("provides object defaults for request data, params, and headers", async () => {
+    const adapter = new ScriptedAdapter(
+      async (config) => response({ ok: true }, config),
+      async (config) => response({ ok: true }, config),
+      async (config) => response({ ok: true }, config),
+    );
+    const client = new RequestClient(adapter);
+
+    await client.get("/defaults");
+    await client.post("/empty");
+    await client.request({ url: "/undefined", data: undefined, params: undefined, headers: undefined });
+
+    for (const call of adapter.calls) {
+      expect(call).toMatchObject({ data: {}, params: {}, headers: {} });
+    }
+  });
+
+  test("overrides default headers without regard to casing", async () => {
     const adapter = new ScriptedAdapter(async (config) => response({ ok: true }, config));
-    const globalMeta = { source: "client", shared: "global" };
-    const requestMeta = { requestId: "req-1", shared: "request" };
-    const client = new RequestClient(adapter, { meta: globalMeta });
-
-    await client.get("/meta", { meta: requestMeta });
-
-    expect(adapter.calls[0]?.meta).toEqual({
-      source: "client",
-      requestId: "req-1",
-      shared: "request",
+    const client = new RequestClient(adapter, {
+      headers: { Authorization: "Bearer default", "x-client": "1" },
     });
-    expect(adapter.calls[0]?.meta).not.toBe(globalMeta);
-    expect(adapter.calls[0]?.meta).not.toBe(requestMeta);
-    expect(globalMeta).toEqual({ source: "client", shared: "global" });
-    expect(requestMeta).toEqual({ requestId: "req-1", shared: "request" });
+
+    await client.get("/profile", { headers: { authorization: "Bearer request" } });
+
+    expect(adapter.calls[0]?.headers).toEqual({
+      authorization: "Bearer request",
+      "x-client": "1",
+    });
   });
 
   test("supports declaration-merged request config fields", async () => {
@@ -598,7 +631,100 @@ describe("RequestClient", () => {
   });
 });
 
+describe("executeWithRetry", () => {
+  test("honors Retry-After up to the configured maximum delay", async () => {
+    vi.useFakeTimers();
+    try {
+      let calls = 0;
+      const operation = async () => {
+        calls += 1;
+        if (calls === 1) {
+          throw new HttpError("Busy", 429, {
+            data: undefined,
+            status: 429,
+            statusText: "Busy",
+            headers: { "Retry-After": "2" },
+            config: { url: "/busy" },
+          });
+        }
+        return "recovered";
+      };
+      const pending = executeWithRetry(
+        operation,
+        { max: 1, delay: 100, maxDelay: 1_000, respectRetryAfter: true },
+        "GET",
+      );
+
+      await vi.advanceTimersByTimeAsync(999);
+      expect(calls).toBe(1);
+      await vi.advanceTimersByTimeAsync(1);
+      await expect(pending).resolves.toBe("recovered");
+      expect(calls).toBe(2);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  test("applies full jitter to bounded exponential delays", async () => {
+    vi.useFakeTimers();
+    const random = vi.spyOn(Math, "random").mockReturnValue(0.5);
+    try {
+      let calls = 0;
+      const operation = async () => {
+        calls += 1;
+        if (calls < 3) throw new TimeoutError();
+        return "recovered";
+      };
+      const pending = executeWithRetry(
+        operation,
+        { max: 2, delay: 100, backoff: "exponential", maxDelay: 150, jitter: "full" },
+        "GET",
+      );
+
+      await vi.advanceTimersByTimeAsync(49);
+      expect(calls).toBe(1);
+      await vi.advanceTimersByTimeAsync(1);
+      expect(calls).toBe(2);
+      await vi.advanceTimersByTimeAsync(74);
+      expect(calls).toBe(2);
+      await vi.advanceTimersByTimeAsync(1);
+      await expect(pending).resolves.toBe("recovered");
+      expect(calls).toBe(3);
+    } finally {
+      random.mockRestore();
+      vi.useRealTimers();
+    }
+  });
+
+  test("does not retry an already canceled zero-delay wait", async () => {
+    const controller = new AbortController();
+    const operation = vi.fn(async () => {
+      controller.abort();
+      throw new TimeoutError();
+    });
+
+    await expect(
+      executeWithRetry(operation, { max: 1, delay: 0 }, "GET", controller.signal),
+    ).rejects.toMatchObject({ name: "AbortError" });
+    expect(operation).toHaveBeenCalledOnce();
+  });
+
+  test("rejects a non-finite retry count", async () => {
+    await expect(executeWithRetry(async () => 1, Number.NaN, "GET")).rejects.toThrow(
+      "retry.max must be finite",
+    );
+  });
+});
+
 describe("InterceptorManager", () => {
+  test("ejects the original interceptor reference", async () => {
+    const manager = new InterceptorManager<number>();
+    const interceptor = { fulfilled: (value: number) => value + 1 };
+    manager.use(interceptor);
+    manager.eject(interceptor);
+    await expect(manager.run(1)).resolves.toBe(1);
+  });
+
   test("accepts fulfilled and rejected handlers as two arguments", async () => {
     const manager = new InterceptorManager<{ count: number }, Error>();
     const remove = manager.use(
@@ -658,6 +784,34 @@ describe("InterceptorManager", () => {
 });
 
 describe("FetchAdapter", () => {
+  test("does not send a body for a default GET request", async () => {
+    const fetchMock = vi.fn(async (url: string | URL | Request, init?: RequestInit) => {
+      const request = new Request(url, init);
+      expect(request.body).toBeNull();
+      return new Response(JSON.stringify({ ok: true }), {
+        headers: { "content-type": "application/json" },
+      });
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(
+      createHttpClient({}, false).get("https://api.example.com/health"),
+    ).resolves.toEqual({ ok: true });
+    expect(fetchMock).toHaveBeenCalledOnce();
+  });
+
+  test("does not send a body when FetchAdapter defaults its method to GET", async () => {
+    const fetchMock = vi.fn(async (url: string | URL | Request, init?: RequestInit) => {
+      expect(new Request(url, init).body).toBeNull();
+      return new Response("ok");
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(
+      new FetchAdapter().request({ url: "https://api.example.com/health", data: {} }),
+    ).resolves.toMatchObject({ data: "ok" });
+  });
+
   test("serializes params and JSON request bodies", async () => {
     const fetchMock = vi.fn(async (..._arguments: Parameters<typeof fetch>) =>
       Promise.resolve(

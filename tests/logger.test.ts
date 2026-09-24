@@ -1,4 +1,3 @@
-import { describe, expect, test, vi } from "vite-plus/test";
 import {
   RequestClient,
   createLoggerPlugin,
@@ -20,40 +19,21 @@ class StaticAdapter implements HttpAdapter {
 }
 
 describe("createLoggerPlugin", () => {
-  test("uses request meta logger before plugin logger", async () => {
+  test("uses request logger before plugin logger", async () => {
     const pluginLogger = { debug: vi.fn(), error: vi.fn() };
     const requestLogger = { debug: vi.fn(), error: vi.fn() };
     const client = new RequestClient(new StaticAdapter());
     client.use(createLoggerPlugin({ logger: pluginLogger }));
 
     await expect(
-      client.get("/status", { meta: { logger: { logger: requestLogger } } }),
+      client.get("/status", { logger: { logger: requestLogger } }),
     ).resolves.toEqual({ ok: true });
 
     expect(requestLogger.debug).toHaveBeenCalledTimes(2);
     expect(pluginLogger.debug).not.toHaveBeenCalled();
   });
 
-  test("uses request logger before request meta and plugin logger", async () => {
-    const pluginLogger = { debug: vi.fn(), error: vi.fn() };
-    const metaLogger = { debug: vi.fn(), error: vi.fn() };
-    const requestLogger = { debug: vi.fn(), error: vi.fn() };
-    const client = new RequestClient(new StaticAdapter());
-    client.use(createLoggerPlugin({ logger: pluginLogger }));
-
-    await expect(
-      client.get("/status", {
-        logger: { logger: requestLogger },
-        meta: { logger: { logger: metaLogger } },
-      }),
-    ).resolves.toEqual({ ok: true });
-
-    expect(requestLogger.debug).toHaveBeenCalledTimes(2);
-    expect(metaLogger.debug).not.toHaveBeenCalled();
-    expect(pluginLogger.debug).not.toHaveBeenCalled();
-  });
-
-  test("uses plugin logger when request meta logger is absent", async () => {
+  test("uses plugin logger when a request logger is absent", async () => {
     const pluginLogger = { debug: vi.fn(), error: vi.fn() };
     const client = new RequestClient(new StaticAdapter());
     client.use(createLoggerPlugin({ logger: pluginLogger }));

@@ -1,4 +1,3 @@
-import { describe, expect, test } from "vite-plus/test";
 import {
   RequestClient,
   createMockPlugin,
@@ -47,7 +46,7 @@ describe("createMockPlugin", () => {
     expect(mock.history[0]).toMatchObject({ matched: true });
   });
 
-  test("uses request meta mock response before route matching", async () => {
+  test("uses request mock response before route matching", async () => {
     const adapter = new RecordingAdapter();
     const client = new RequestClient(adapter);
     const mock = createMockPlugin({
@@ -60,12 +59,10 @@ describe("createMockPlugin", () => {
         "/users",
         { name: "Alice" },
         {
-          meta: {
-            mock: {
-              code: 0,
-              message: "你好",
-              data: [{ id: "Route000210" }, { id: "Route000211" }],
-            },
+          mock: {
+            code: 0,
+            message: "你好",
+            data: [{ id: "Route000210" }, { id: "Route000211" }],
           },
         },
       ),
@@ -78,38 +75,7 @@ describe("createMockPlugin", () => {
     expect(mock.history[0]).toMatchObject({ matched: true, route: undefined });
   });
 
-  test("uses request meta mock route before route matching", async () => {
-    const adapter = new RecordingAdapter();
-    const client = new RequestClient(adapter);
-    const mock = createMockPlugin({
-      routes: [{ url: "/route-only", response: { source: "route" } }],
-    });
-    client.use(mock);
-
-    await expect(
-      client.get("/users", {
-        meta: {
-          mock: {
-            url: "/not-used-for-matching",
-            response: { source: "meta-route" },
-            status: 201,
-            headers: { "x-meta-mock": "true" },
-          },
-        },
-      }),
-    ).resolves.toEqual({ source: "meta-route" });
-    expect(adapter.calls).toHaveLength(0);
-    expect(mock.history[0]).toMatchObject({
-      matched: true,
-      route: {
-        response: { source: "meta-route" },
-        status: 201,
-        headers: { "x-meta-mock": "true" },
-      },
-    });
-  });
-
-  test("uses request mock field before request meta mock", async () => {
+  test("uses request mock route before route matching", async () => {
     const adapter = new RecordingAdapter();
     const client = new RequestClient(adapter);
     const mock = createMockPlugin({
@@ -121,25 +87,24 @@ describe("createMockPlugin", () => {
       client.get("/users", {
         mock: {
           url: "/not-used-for-matching",
-          response: { source: "config-mock" },
+          response: { source: "request-route" },
           status: 201,
-        },
-        meta: {
-          mock: { source: "meta-mock" },
+          headers: { "x-mock": "true" },
         },
       }),
-    ).resolves.toEqual({ source: "config-mock" });
+    ).resolves.toEqual({ source: "request-route" });
     expect(adapter.calls).toHaveLength(0);
     expect(mock.history[0]).toMatchObject({
       matched: true,
       route: {
-        response: { source: "config-mock" },
+        response: { source: "request-route" },
         status: 201,
+        headers: { "x-mock": "true" },
       },
     });
   });
 
-  test("uses request meta mock factory with final config", async () => {
+  test("uses request mock factory with final config", async () => {
     const adapter = new RecordingAdapter();
     const client = new RequestClient(adapter, { baseURL: "https://api.example.com" });
     const mock = createMockPlugin({ routes: [] });
@@ -148,12 +113,10 @@ describe("createMockPlugin", () => {
     await expect(
       client.get("/users", {
         params: { page: 1 },
-        meta: {
-          mock: (config: RequestOptions) => ({
-            url: config.url,
-            params: config.params,
-          }),
-        },
+        mock: (config: RequestOptions) => ({
+          url: config.url,
+          params: config.params,
+        }),
       }),
     ).resolves.toEqual({
       url: "https://api.example.com/users",
@@ -201,14 +164,14 @@ describe("createMockPlugin", () => {
       routes: [
         {
           method: ["GET", "DELETE"],
-          url: async (url, config) => url.startsWith("/items/") && config.meta?.mock === true,
+          url: async (url, config) => url.startsWith("/items/") && config.params?.mock === true,
           response: { ok: true },
         },
       ],
     });
     client.use(mock);
 
-    await expect(client.delete("/items/1", { meta: { mock: true } })).resolves.toEqual({
+    await expect(client.delete("/items/1", { params: { mock: true } })).resolves.toEqual({
       ok: true,
     });
     expect(adapter.calls).toHaveLength(0);

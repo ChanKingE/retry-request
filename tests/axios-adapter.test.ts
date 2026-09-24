@@ -1,4 +1,3 @@
-import { describe, expect, test } from "vite-plus/test";
 import {
   AxiosAdapter,
   HttpError,
@@ -54,6 +53,24 @@ describe("AxiosAdapter", () => {
     }).request({ url: "/health" });
 
     expect(received?.baseURL).toBe("https://adapter.example.com");
+  });
+
+  test("does not pass baseURL with an already resolved absolute URL", async () => {
+    let received: AxiosRequestConfigLike | undefined;
+    const instance: AxiosInstanceLike = {
+      defaults: { baseURL: "https://axios.example.com" },
+      async request<T>(config: AxiosRequestConfigLike) {
+        received = config;
+        return { data: undefined as T, status: 204, statusText: "No Content" };
+      },
+    };
+
+    await new AxiosAdapter(instance).request({
+      url: "https://request.example.com/health",
+      baseURL: "https://request.example.com",
+    });
+
+    expect(received?.baseURL).toBeUndefined();
   });
 
   test("maps request config and normalizes AxiosHeaders", async () => {
