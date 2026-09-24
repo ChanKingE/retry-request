@@ -498,6 +498,24 @@ describe("RequestClient", () => {
     await expect(result).rejects.toMatchObject({ name: "AbortError" });
   });
 
+  test("rejects an already canceled signal before resolvers and adapters", async () => {
+    const adapter = new ScriptedAdapter(async (config) => response({ ok: true }, config));
+    const client = new RequestClient(adapter);
+    const resolver = vi.fn();
+    client.useRequestResolver(resolver);
+    const controller = new AbortController();
+    const reason = new Error("navigation changed");
+    controller.abort(reason);
+
+    const error = await client
+      .get("/canceled", { signal: controller.signal })
+      .catch((caught: unknown) => caught);
+
+    expect(error).toMatchObject({ name: "AbortError", cause: reason });
+    expect(resolver).not.toHaveBeenCalled();
+    expect(adapter.calls).toHaveLength(0);
+  });
+
   test("runs plugin cleanup and removes plugin interceptors", async () => {
     const adapter = new ScriptedAdapter(
       async (config) => response({ ok: true }, config),
@@ -825,9 +843,9 @@ describe("FetchAdapter", () => {
     const adapter = new FetchAdapter();
 
     const result = await adapter.request<{ id: string }>({
-      url: "https://api.example.com/users?active=true",
+      url: "https://api.example.com/users?active=true#details",
       method: "POST",
-      params: { role: ["admin", "owner"] },
+      params: { role: ["admin user", "owner"] },
       data: { name: "Ada" },
     });
 
@@ -836,9 +854,49 @@ describe("FetchAdapter", () => {
     const call = fetchMock.mock.calls[0];
     expect(call).toBeDefined();
     const [url, init] = call as Parameters<typeof fetch>;
-    expect(url).toBe("https://api.example.com/users?active=true&role=admin&role=owner");
+    expect(url).toBe("https://api.example.com/users?active=true&role=admin+user&role=owner#details");
     expect(init).toMatchObject({ method: "POST", body: JSON.stringify({ name: "Ada" }) });
     expect((init?.headers as Headers | undefined)?.get("content-type")).toBe("application/json");
+  });
+
+  test("parses structured JSON media types", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () =>
+        new Response(JSON.stringify({ id: "1" }), {
+          headers: { "content-type": "application/problem+json; charset=utf-8" },
+        }),
+      ),
+    );
+
+    await expect(new FetchAdapter().request({ url: "https://api.example.com/problem" })).resolves.toMatchObject({
+      data: { id: "1" },
+    });
+  });
+
+  test("normalizes external Fetch cancellation and preserves its reason", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(
+        (_url: string | URL | Request, init?: RequestInit) =>
+          new Promise<Response>((_resolve, reject) => {
+            (init?.signal as AbortSignal).addEventListener(
+              "abort",
+              () => reject(new Error("native fetch cancellation")),
+              { once: true },
+            );
+          }),
+      ),
+    );
+    const controller = new AbortController();
+    const reason = new Error("route changed");
+    const pending = new FetchAdapter().request({
+      url: "https://api.example.com/slow",
+      signal: controller.signal,
+    });
+    controller.abort(reason);
+
+    await expect(pending).rejects.toMatchObject({ name: "AbortError", cause: reason });
   });
 });
 

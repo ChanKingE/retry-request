@@ -108,23 +108,35 @@ describe("UniAppAdapter", () => {
   test("aborts RequestTask when the external signal is aborted", async () => {
     let abortCalls = 0;
     const adapter = new UniAppAdapter({
-      request() {
-        return { abort: () => (abortCalls += 1) };
+      request(options) {
+        const task = {
+          abort: () => {
+            abortCalls += 1;
+            options.fail?.({ errMsg: "request:fail interrupted" });
+          },
+        };
+        return task;
       },
     });
     const controller = new AbortController();
     const result = adapter.request({ url: "/slow", signal: controller.signal });
-    controller.abort();
+    const reason = new Error("view closed");
+    controller.abort(reason);
 
-    await expect(result).rejects.toMatchObject({ name: "AbortError" });
+    await expect(result).rejects.toMatchObject({ name: "AbortError", cause: reason });
     expect(abortCalls).toBe(1);
   });
 
   test("enforces timeout locally and aborts RequestTask", async () => {
     let abortCalls = 0;
     const adapter = new UniAppAdapter({
-      request() {
-        return { abort: () => (abortCalls += 1) };
+      request(options) {
+        return {
+          abort: () => {
+            abortCalls += 1;
+            options.fail?.({ errMsg: "request:fail interrupted" });
+          },
+        };
       },
     });
 
@@ -132,6 +144,24 @@ describe("UniAppAdapter", () => {
       TimeoutError,
     );
     expect(abortCalls).toBe(1);
+  });
+
+  test("adds query parameters before a URL hash", async () => {
+    let received: UniRequestOptions | undefined;
+    const adapter = new UniAppAdapter({
+      request(options) {
+        received = options;
+        options.success?.({ data: "ok", statusCode: 200 });
+        return { abort() {} };
+      },
+    });
+
+    await adapter.request({
+      url: "https://api.example.com/users?active=true#details",
+      params: { role: "admin user" },
+    });
+
+    expect(received?.url).toBe("https://api.example.com/users?active=true&role=admin+user#details");
   });
 
   test("converts synchronous uni.request failures to NetworkError", async () => {

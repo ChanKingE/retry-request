@@ -5,6 +5,7 @@ import {
   TimeoutError,
   type AxiosInstanceLike,
   type AxiosRequestConfigLike,
+  type RequestOptions,
 } from "../src/index.ts";
 
 describe("AxiosAdapter", () => {
@@ -125,6 +126,61 @@ describe("AxiosAdapter", () => {
       },
       config: expect.objectContaining({ url: "/users" }),
     });
+  });
+
+  test("keeps requestConfig defaults when a request omits an optional field", async () => {
+    let received: AxiosRequestConfigLike | undefined;
+    const instance: AxiosInstanceLike = {
+      async request<T>(config: AxiosRequestConfigLike) {
+        received = config;
+        return { data: undefined as T, status: 204, statusText: "No Content", headers: {} };
+      },
+    };
+
+    await new AxiosAdapter(instance, {
+      requestConfig: {
+        timeout: 3_000,
+        headers: { "x-adapter-default": "enabled" },
+        data: { ignored: "for GET" },
+      },
+    }).request({ url: "/users" });
+
+    expect(received).toMatchObject({
+      timeout: 3_000,
+      headers: { "x-adapter-default": "enabled" },
+      data: undefined,
+    });
+  });
+
+  test("does not leak plugins or business extensions into Axios config", async () => {
+    let received: (AxiosRequestConfigLike & Record<string, unknown>) | undefined;
+    const instance: AxiosInstanceLike = {
+      async request<T>(config: AxiosRequestConfigLike) {
+        received = config as AxiosRequestConfigLike & Record<string, unknown>;
+        return { data: undefined as T, status: 204, statusText: "No Content", headers: {} };
+      },
+    };
+
+    await new AxiosAdapter(instance, { requestConfig: { responseType: "json" } }).request({
+      url: "/users",
+      method: "POST",
+      data: { name: "Alice" },
+      logger: {},
+      dedupe: {},
+      mock: { response: { ok: true } },
+      businessOnly: true,
+    } as RequestOptions & { businessOnly: boolean });
+
+    expect(received).toMatchObject({
+      url: "/users",
+      method: "POST",
+      data: { name: "Alice" },
+      responseType: "json",
+    });
+    expect(received).not.toHaveProperty("logger");
+    expect(received).not.toHaveProperty("dedupe");
+    expect(received).not.toHaveProperty("mock");
+    expect(received).not.toHaveProperty("businessOnly");
   });
 
   test("converts resolved HTTP error responses to HttpError", async () => {
