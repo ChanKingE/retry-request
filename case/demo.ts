@@ -44,13 +44,15 @@ async function runDemo(): Promise<void> {
   console.log("默认客户端使用 FetchAdapter：", httpClient.adapter instanceof FetchAdapter);
 
   const mock = createDemoMock();
-  const client = createHttpClient({
-    baseURL: "https://api.example.com",
-    timeout: 5_000,
-    withCredentials: true,
-    headers: { "x-client-version": "1.0.0" },
-    meta: { application: "request-demo", environment: "local" },
-  });
+  const client = createHttpClient(
+    {
+      baseURL: "https://api.example.com",
+      timeout: 5_000,
+      withCredentials: true,
+      headers: { "x-client-version": "1.0.0" },
+    },
+    true,
+  );
 
   const removeMock = client.use(mock);
   const removeLogger = client.use(
@@ -66,7 +68,6 @@ async function runDemo(): Promise<void> {
       return {
         ...config,
         headers: { ...config.headers, "x-trace-id": "demo-trace-id" },
-        meta: { ...config.meta, intercepted: true },
       };
     },
   });
@@ -183,10 +184,10 @@ function createDemoMock(): ReturnType<typeof createMockPlugin> {
       {
         method: ["GET", "DELETE"],
         url: (url, config) =>
-          url === "https://api.example.com/features/demo" && config.meta?.feature === "demo",
+          url === "https://api.example.com/features/demo" && config.params?.feature === "demo",
         response: (config) => ({
           code: 0,
-          data: { method: config.method, meta: config.meta },
+          data: { method: config.method, params: config.params },
         }),
       },
       {
@@ -249,7 +250,6 @@ async function demonstrateRequestMethods(
     data: { name: "daily-report" },
     headers: { "x-job-source": "demo" },
     timeout: 2_000,
-    meta: { module: "jobs" },
   });
 
   console.log("请求方法结果：", { user, page, created, replaced, patched, deleted, job });
@@ -267,11 +267,11 @@ async function demonstrateBaseURL(client: ReturnType<typeof createHttpClient>): 
   console.log("baseURL 结果：", { requestBase, withoutBase, absolute });
 }
 
-/** 演示函数匹配器读取合并后的全局 meta 与请求 meta。 */
+/** 演示函数匹配器读取请求查询参数。 */
 async function demonstrateMockMatchers(client: ReturnType<typeof createHttpClient>): Promise<void> {
-  const result = await client.get<{ method: string; meta: Record<string, unknown> }>(
+  const result = await client.get<{ method: string; params: Record<string, unknown> }>(
     "/features/demo",
-    { meta: { feature: "demo", environment: "request" } },
+    { params: { feature: "demo" } },
   );
   console.log("函数 Mock 匹配结果：", result);
 }
@@ -320,7 +320,7 @@ async function demonstrateErrors(client: ReturnType<typeof createHttpClient>): P
       };
     },
   };
-  const fallbackClient = createHttpClient({ adapter: fallbackAdapter, responseEnvelope: false });
+  const fallbackClient = createHttpClient({ adapter: fallbackAdapter }, false);
   fallbackClient.use(createMockPlugin({ routes: [] }));
   console.log("Mock 未匹配，执行适配器：", await fallbackClient.get("/not-mocked"));
 
@@ -329,7 +329,7 @@ async function demonstrateErrors(client: ReturnType<typeof createHttpClient>): P
       throw new NetworkError("演示网络不可用", { config });
     },
   };
-  const networkClient = createHttpClient({ adapter: networkAdapter, responseEnvelope: false });
+  const networkClient = createHttpClient({ adapter: networkAdapter }, false);
   await reportExpectedError("网络错误", networkClient.get("/network-error"));
 
   const timeoutAdapter: HttpAdapter = {
@@ -337,7 +337,7 @@ async function demonstrateErrors(client: ReturnType<typeof createHttpClient>): P
       throw new TimeoutError("演示请求超时", { config });
     },
   };
-  const timeoutClient = createHttpClient({ adapter: timeoutAdapter, responseEnvelope: false });
+  const timeoutClient = createHttpClient({ adapter: timeoutAdapter }, false);
   await reportExpectedError("超时错误", timeoutClient.get("/timeout"));
 }
 
@@ -372,12 +372,14 @@ async function demonstrateAdapters(): Promise<void> {
       };
     },
   };
-  const axiosClient = createHttpClient({
-    adapter: new AxiosAdapter(axiosInstance, {
-      requestConfig: { responseType: "json", maxRedirects: 3 },
-    }),
-    responseEnvelope: false,
-  });
+  const axiosClient = createHttpClient(
+    {
+      adapter: new AxiosAdapter(axiosInstance, {
+        requestConfig: { responseType: "json", maxRedirects: 3 },
+      }),
+    },
+    false,
+  );
   const axiosResult = await axiosClient.get<{ runtime: string; url: string }>("/axios-demo");
 
   const uniRequest: UniRequest = (options) => {
@@ -390,17 +392,19 @@ async function demonstrateAdapters(): Promise<void> {
     }, 0);
     return { abort: () => clearTimeout(timer) };
   };
-  const uniClient = createHttpClient({
-    baseURL: "https://uni.example.com",
-    adapter: new UniAppAdapter({
-      request: uniRequest,
-      dataType: "json",
-      responseType: "text",
-      sslVerify: true,
-      requestOptions: { enableHttp2: true },
-    }),
-    responseEnvelope: false,
-  });
+  const uniClient = createHttpClient(
+    {
+      baseURL: "https://uni.example.com",
+      adapter: new UniAppAdapter({
+        request: uniRequest,
+        dataType: "json",
+        responseType: "text",
+        sslVerify: true,
+        requestOptions: { enableHttp2: true },
+      }),
+    },
+    false,
+  );
   const uniResult = await uniClient.get<{ runtime: string; url: string }>("/uni-demo", {
     params: { platform: "app" },
   });
