@@ -2,6 +2,7 @@ import { HttpError, NetworkError, TimeoutError, type RequestError } from "@/erro
 import type { HttpMethod, RetryPolicy } from "@/types.ts";
 
 const IDEMPOTENT_METHODS = new Set<HttpMethod>(["GET", "HEAD", "OPTIONS", "PUT", "DELETE"]);
+const MAX_TIMER_DELAY = 2_147_483_647;
 
 /**
  * 按策略执行并重试异步操作。
@@ -38,7 +39,14 @@ export async function executeWithRetry<T>(
       }
 
       const baseDelay = resolved.delay ?? 1_000;
-      const delay = resolved.backoff === "exponential" ? baseDelay * 2 ** attempt : baseDelay;
+      const limit = Math.min(resolved.maxDelay ?? MAX_TIMER_DELAY, MAX_TIMER_DELAY);
+      const backoffDelay =
+        resolved.backoff === "exponential" ? baseDelay * 2 ** attempt : baseDelay;
+      const boundedDelay = Math.min(backoffDelay, limit);
+      const jitteredDelay =
+        resolved.jitter === "full" ? Math.random() * boundedDelay : boundedDelay;
+      const retryAfter = resolved.respectRetryAfter ? getRetryAfterDelay(error) : undefined;
+      const delay = Math.min(Math.max(jitteredDelay, retryAfter ?? 0), limit);
       await wait(delay, signal);
     }
   }
@@ -62,6 +70,16 @@ export function defaultRetryable(error: RequestError): boolean {
 function resolveRetryPolicy(policy: number | RetryPolicy | undefined): RetryPolicy | undefined {
   if (policy === undefined) return undefined;
   const resolved = typeof policy === "number" ? { max: policy } : policy;
+  if (!Number.isFinite(resolved.max)) throw new RangeError("retry.max must be finite");
+  if (resolved.delay !== undefined && (!Number.isFinite(resolved.delay) || resolved.delay < 0)) {
+    throw new RangeError("retry.delay must be a non-negative finite number");
+  }
+  if (
+    resolved.maxDelay !== undefined &&
+    (!Number.isFinite(resolved.maxDelay) || resolved.maxDelay < 0)
+  ) {
+    throw new RangeError("retry.maxDelay must be a non-negative finite number");
+  }
   return {
     ...resolved,
     max: Math.max(0, Math.floor(resolved.max)),
@@ -69,9 +87,20 @@ function resolveRetryPolicy(policy: number | RetryPolicy | undefined): RetryPoli
   };
 }
 
+function getRetryAfterDelay(error: unknown): number | undefined {
+  if (!(error instanceof HttpError)) return undefined;
+  const header = Object.entries(error.response?.headers ?? {}).find(
+    ([name]) => name.toLowerCase() === "retry-after",
+  )?.[1];
+  if (header === undefined) return undefined;
+  const seconds = Number(header);
+  const delay = Number.isFinite(seconds) ? seconds * 1_000 : Date.parse(header) - Date.now();
+  return Number.isFinite(delay) ? Math.max(0, delay) : undefined;
+}
+
 function wait(delay: number, signal?: AbortSignal): Promise<void> {
-  if (delay <= 0) return Promise.resolve();
   if (signal?.aborted) return Promise.reject(signal.reason);
+  if (delay <= 0) return Promise.resolve();
 
   return new Promise((resolve, reject) => {
     const finish = () => {

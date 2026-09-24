@@ -10,24 +10,10 @@ import type { Interceptor, InterceptorInput, InterceptorRejected } from "@/types
  * 当前拦截器的 `fulfilled` 抛错时也会交给同一拦截器的 `rejected`。
  */
 export class InterceptorManager<T = unknown, E = unknown> {
-  readonly #interceptors: Interceptor<T, E>[] = [];
-
-  #normalizedInterceptor = (
-    interceptor: InterceptorInput<T, E> = {},
-    rejected?: InterceptorRejected<T, E>,
-  ): Interceptor<T, E> => {
-    const normalizedInterceptor: Interceptor<T, E> = {
-      fulfilled: void 0,
-      rejected,
-    };
-    if (typeof interceptor === "function") {
-      normalizedInterceptor.fulfilled = interceptor;
-    } else {
-      normalizedInterceptor.fulfilled = interceptor.fulfilled;
-      normalizedInterceptor.rejected = interceptor.rejected;
-    }
-    return normalizedInterceptor;
-  };
+  readonly #interceptors: Array<{
+    source: InterceptorInput<T, E>;
+    value: Interceptor<T, E>;
+  }> = [];
 
   /**
    * 注册拦截器。
@@ -37,9 +23,15 @@ export class InterceptorManager<T = unknown, E = unknown> {
    * @returns 幂等卸载函数；多次调用不会抛错。
    */
   use(interceptor: InterceptorInput<T, E> = {}, rejected?: InterceptorRejected<T, E>): () => void {
-    const normalizedInterceptor = this.#normalizedInterceptor(interceptor, rejected);
-    this.#interceptors.push(normalizedInterceptor);
-    return () => this.eject(normalizedInterceptor);
+    const entry = {
+      source: interceptor,
+      value: typeof interceptor === "function" ? { fulfilled: interceptor, rejected } : interceptor,
+    };
+    this.#interceptors.push(entry);
+    return () => {
+      const index = this.#interceptors.indexOf(entry);
+      if (index >= 0) this.#interceptors.splice(index, 1);
+    };
   }
 
   /**
@@ -48,8 +40,7 @@ export class InterceptorManager<T = unknown, E = unknown> {
    * @param interceptor - 注册时传入的同一个对象引用。
    */
   eject(interceptor: InterceptorInput<T, E>): void {
-    const normalizedInterceptor = this.#normalizedInterceptor(interceptor);
-    const index = this.#interceptors.indexOf(normalizedInterceptor);
+    const index = this.#interceptors.findIndex((entry) => entry.source === interceptor);
     if (index >= 0) this.#interceptors.splice(index, 1);
   }
 
@@ -67,7 +58,7 @@ export class InterceptorManager<T = unknown, E = unknown> {
       return resolvedValue;
     });
 
-    for (const interceptor of this.#interceptors) {
+    for (const { value: interceptor } of this.#interceptors.slice()) {
       const handlerRejected = async (error: E) => {
         if (!interceptor.rejected) throw error;
         const recoveredValue = await interceptor.rejected(error, latestValue);

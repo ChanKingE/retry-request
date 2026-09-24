@@ -71,6 +71,12 @@ export interface RetryPolicy {
    * @defaultValue `fixed`
    */
   backoff?: "fixed" | "exponential";
+  /** 单次重试等待的上限，单位毫秒；省略时仅受运行环境计时器上限约束。 */
+  maxDelay?: number;
+  /** 使用 full jitter 将退避等待随机分布在 `0` 到计算值之间。 */
+  jitter?: "full";
+  /** 在 HTTP 错误响应中遵守 `Retry-After`；默认关闭。 */
+  respectRetryAfter?: boolean;
   /**
    * 是否允许 `POST`、`PATCH` 等非幂等请求重试。
    *
@@ -159,7 +165,7 @@ export interface HttpResponse<T = unknown> {
   /** 标准化为字符串键值的响应头。 */
   headers: Record<string, string>;
   /** 实际发送给适配器的最终请求配置。 */
-  config: InterceptorRequestOptions;
+  config: RequestOptions;
 }
 
 /**
@@ -255,12 +261,6 @@ export type RequestMiddleware = (
 export interface ClientOptions extends CommonOptions {
   /** 自定义适配器。@defaultValue {@link FetchAdapter} */
   adapter?: HttpAdapter;
-  /**
-   * 标准业务响应解包配置。
-   *
-   * @remarks 设为 `false` 可关闭；省略时按 `{ code, data, message }` 和成功码 `0` 解包。
-   */
-  responseEnvelope?: false | ResponseEnvelopeOptions;
 }
 
 /** `{ code, data, message }` 业务响应结构的字段映射。 */
