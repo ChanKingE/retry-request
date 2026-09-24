@@ -205,7 +205,6 @@ export class RequestClient {
     }
 
     const initialConfig = this.#applyDefaults(config);
-
     try {
       const interceptedConfig = await this.#requestInterceptors.run(initialConfig);
       const finalConfig = {

@@ -49,5 +49,4 @@ async function run() {
     retry: 3,
   });
 }
-
 void run();
